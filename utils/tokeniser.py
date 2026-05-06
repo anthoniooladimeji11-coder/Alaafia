@@ -1,188 +1,407 @@
+"""
+Alaafia Population Tokeniser — v2
+Converts NDHS 2024 merged records into structured semantic tokens.
+Now includes KR (child), GR (pregnancy), and CR (couples) variables.
+
+Author: Anthonio Oladimeji
+"""
+
 import pandas as pd
 import numpy as np
 
-ZONE_MAP = {1:'north_central',2:'north_east',3:'north_west',
-            4:'south_east',5:'south_south',6:'south_west'}
 
-WEALTH_MAP = {1:'poorest',2:'poor',3:'middle',4:'rich',5:'richest'}
-
-RESIDENCE_MAP = {1:'urban',2:'rural'}
-
-EDUCATION_MAP = {0:'no_education',1:'primary',2:'secondary',3:'higher'}
-
-FUEL_MAP = {1:'electricity',2:'lpg',3:'natural_gas',4:'biogas',
-            5:'kerosene',6:'coal',7:'charcoal',8:'wood',
-            9:'straw',10:'dung',95:'no_cooking',96:'other'}
-
-SOLID_FUEL = {6,7,8,9,10}
-CLEAN_FUEL = {1,2,3,4,5}
-
-WATER_MAP = {11:'piped_dwelling',12:'piped_yard',13:'piped_neighbor',
-             21:'protected_well',31:'protected_spring',41:'rainwater',
-             51:'tanker',61:'bottled',71:'filtered',
-             32:'unprotected_spring',42:'surface_water',43:'river',96:'other'}
-
-UNIMPROVED_WATER = {32,42,43,96}
-
-SANITATION_MAP = {11:'flush_sewer',12:'flush_septic',13:'flush_pit',
-                  21:'ventilated_pit',22:'pit_slab',23:'pit_no_slab',
-                  31:'composting',41:'hanging',51:'open_defecation',96:'other'}
-
-POOR_SANITATION = {23,41,51,96}
-
-ANAEMIA_MAP = {1:'severe',2:'moderate',3:'mild',4:'none'}
-
-
-def safe_int(val):
-    try:
-        if pd.isna(val):
-            return None
-        return int(val)
-    except:
-        return None
+def safe(val, default='unknown'):
+    if pd.isna(val):
+        return default
+    return val
 
 
 def tokenise_record(row: pd.Series) -> str:
     tokens = []
 
-    # ── STRATUM ──
-    zone = safe_int(row.get('v024'))
-    if zone:
-        tokens.append(f"STRATUM:zone_{ZONE_MAP.get(zone,'unknown')}")
+    # ─── STRATUM ─────────────────────────────────────────
+    zone_map = {1:'zone_north_central', 2:'zone_north_east',
+                3:'zone_north_west', 4:'zone_south_east',
+                5:'zone_south_south', 6:'zone_south_west'}
+    zone = zone_map.get(int(safe(row.get('v024', 0), 0)), 'zone_unknown')
+    tokens.append(f"STRATUM:{zone}")
 
-    wealth = safe_int(row.get('v190'))
-    if wealth:
-        tokens.append(f"STRATUM:{WEALTH_MAP.get(wealth,'unknown')}")
+    wealth_map = {1:'poorest', 2:'poor', 3:'middle', 4:'rich', 5:'richest'}
+    wealth = wealth_map.get(int(safe(row.get('v190', 0), 0)), 'unknown')
+    tokens.append(f"STRATUM:{wealth}")
 
-    res = safe_int(row.get('v025'))
-    if res:
-        tokens.append(f"STRATUM:{RESIDENCE_MAP.get(res,'unknown')}")
+    residence = 'urban' if safe(row.get('v025', 2)) == 1 else 'rural'
+    tokens.append(f"STRATUM:{residence}")
 
-    edu = safe_int(row.get('v106'))
-    if edu is not None:
-        tokens.append(f"STRATUM:education_{EDUCATION_MAP.get(edu,'unknown')}")
+    edu_map = {0:'no_education', 1:'primary', 2:'secondary', 3:'higher'}
+    edu = edu_map.get(int(safe(row.get('v106', 0), 0)), 'unknown')
+    tokens.append(f"STRATUM:education_{edu}")
 
-    # ── EXPOSURE: household level ──
-    fuel = safe_int(row.get('hh_fuel'))
-    if fuel:
-        fuel_label = 'solid_fuel' if fuel in SOLID_FUEL else 'clean_fuel'
-        tokens.append(f"EXPOSURE:cooking_{fuel_label}")
+    # State
+    if not pd.isna(row.get('sstate')):
+        tokens.append(f"STRATUM:state_{int(row['sstate'])}")
 
-    water = safe_int(row.get('hh_water'))
-    if water:
-        water_label = 'unimproved_water' if water in UNIMPROVED_WATER else 'improved_water'
-        tokens.append(f"EXPOSURE:{water_label}")
+    # ─── EXPOSURES ───────────────────────────────────────
+    # Cooking fuel
+    fuel = safe(row.get('v161', 0), 0)
+    try:
+        fuel = int(fuel)
+        if fuel in [1, 2, 3, 4, 5]:
+            tokens.append("EXPOSURE:cooking_clean_fuel")
+        elif fuel in [6, 7, 8, 9, 10, 11, 95, 96]:
+            tokens.append("EXPOSURE:cooking_solid_fuel")
+    except:
+        pass
 
-    sanit = safe_int(row.get('hh_sanitation'))
-    if sanit:
-        sanit_label = 'poor_sanitation' if sanit in POOR_SANITATION else 'improved_sanitation'
-        tokens.append(f"EXPOSURE:{sanit_label}")
-
-    # ── EXPOSURE: geospatial ──
-    travel = row.get('travel_time')
-    if pd.notna(travel):
-        if travel > 60:
-            tokens.append("EXPOSURE:health_facility_far")
-        elif travel > 30:
-            tokens.append("EXPOSURE:health_facility_moderate")
+    # Water source
+    water = safe(row.get('v113', 0), 0)
+    try:
+        water = int(water)
+        if water in [11, 12, 13, 14, 21, 31, 41, 51, 61, 71, 72, 81, 91]:
+            tokens.append("EXPOSURE:improved_water")
         else:
-            tokens.append("EXPOSURE:health_facility_close")
+            tokens.append("EXPOSURE:unimproved_water")
+    except:
+        pass
 
-    malaria = row.get('malaria_prev')
-    if pd.notna(malaria):
-        if malaria > 0.4:
-            tokens.append("EXPOSURE:high_malaria_burden")
-        elif malaria > 0.2:
-            tokens.append("EXPOSURE:moderate_malaria_burden")
+    # Sanitation
+    toilet = safe(row.get('v116', 0), 0)
+    try:
+        toilet = int(toilet)
+        if toilet in [11, 12, 13, 14, 15, 21, 22, 41]:
+            tokens.append("EXPOSURE:improved_sanitation")
         else:
-            tokens.append("EXPOSURE:low_malaria_burden")
+            tokens.append("EXPOSURE:poor_sanitation")
+    except:
+        pass
 
-    itn = row.get('itn_coverage')
-    if pd.notna(itn):
-        tokens.append(f"EXPOSURE:itn_coverage_{'low' if itn < 0.3 else 'moderate' if itn < 0.6 else 'high'}")
-
-    # ── MEDIATORS ──
-    parity = safe_int(row.get('v220'))
-    if parity is not None:
-        if parity == 0:
-            tokens.append("MEDIATOR:nulliparous")
-        elif parity <= 2:
-            tokens.append("MEDIATOR:low_parity")
-        elif parity <= 4:
-            tokens.append("MEDIATOR:moderate_parity")
-        else:
-            tokens.append("MEDIATOR:high_parity")
-
-    anc = row.get('m14_1')
-    if pd.notna(anc):
-        if anc == 0:
-            tokens.append("MEDIATOR:no_anc")
-        elif anc < 4:
-            tokens.append("MEDIATOR:suboptimal_anc")
-        else:
-            tokens.append("MEDIATOR:adequate_anc")
-
-    age = row.get('v012')
-    if pd.notna(age):
-        if age < 20:
-            tokens.append("MEDIATOR:adolescent_mother")
-        elif age < 35:
-            tokens.append("MEDIATOR:prime_reproductive_age")
-        else:
-            tokens.append("MEDIATOR:advanced_maternal_age")
-
-    # ── BIOMARKER ──
-    hb = row.get('v453')
-    if pd.notna(hb):
-        hb_val = hb / 10
-        if hb_val < 99:
-            if hb_val < 8.0:
-                tokens.append("BIOMARKER:severe_anaemia")
-            elif hb_val < 11.0:
-                tokens.append("BIOMARKER:mild_moderate_anaemia")
+    # Travel time to facility
+    travel = safe(row.get('v483a', np.nan))
+    if not pd.isna(travel):
+        try:
+            travel = float(travel)
+            if travel <= 30:
+                tokens.append("EXPOSURE:health_facility_close")
+            elif travel <= 60:
+                tokens.append("EXPOSURE:health_facility_moderate")
             else:
-                tokens.append("BIOMARKER:no_anaemia")
+                tokens.append("EXPOSURE:health_facility_far")
+        except:
+            pass
 
-    # ── OUTCOME ──
-    anaemia = safe_int(row.get('v457'))
-    if anaemia:
-        tokens.append(f"OUTCOME:anaemia_{ANAEMIA_MAP.get(anaemia,'unknown')}")
+    # Malaria burden (geospatial)
+    malaria = safe(row.get('Malaria_Prevalence_2020', np.nan))
+    if not pd.isna(malaria):
+        try:
+            malaria = float(malaria)
+            if malaria < 0.1:
+                tokens.append("EXPOSURE:low_malaria_burden")
+            elif malaria < 0.3:
+                tokens.append("EXPOSURE:moderate_malaria_burden")
+            else:
+                tokens.append("EXPOSURE:high_malaria_burden")
+        except:
+            pass
 
-    # ── EQUITY ──
-    if zone:
-        tokens.append(f"EQUITY:zone_{ZONE_MAP.get(zone,'unknown')}")
-    if wealth:
-        tokens.append(f"EQUITY:{WEALTH_MAP.get(wealth,'unknown')}")
+    # ITN coverage
+    itn = safe(row.get('ITN_Coverage_2020', np.nan))
+    if not pd.isna(itn):
+        try:
+            itn = float(itn)
+            if itn >= 0.6:
+                tokens.append("EXPOSURE:itn_coverage_high")
+            elif itn >= 0.3:
+                tokens.append("EXPOSURE:itn_coverage_moderate")
+            else:
+                tokens.append("EXPOSURE:itn_coverage_low")
+        except:
+            pass
+
+    # Indoor smoking (HR)
+    indoor_smoke = safe(row.get('hv252', np.nan))
+    if not pd.isna(indoor_smoke):
+        try:
+            if int(indoor_smoke) in [1, 2]:
+                tokens.append("EXPOSURE:indoor_smoking")
+        except:
+            pass
+
+    # Food insecurity (HR)
+    for fies_var, label in [('hfs7', 'hunger'), ('hfs8', 'no_food_whole_day')]:
+        val = safe(row.get(fies_var, np.nan))
+        if not pd.isna(val):
+            try:
+                if int(val) >= 3:
+                    tokens.append(f"EXPOSURE:food_insecurity_{label}")
+            except:
+                pass
+
+    # Maternal tobacco (GR)
+    smokes = safe(row.get('gr_smokes', np.nan))
+    if not pd.isna(smokes):
+        try:
+            if float(smokes) > 0.1:
+                tokens.append("EXPOSURE:maternal_tobacco_use")
+        except:
+            pass
+
+    # Maternal alcohol (GR)
+    alcohol = safe(row.get('gr_alcohol_days', np.nan))
+    if not pd.isna(alcohol):
+        try:
+            if float(alcohol) > 0:
+                tokens.append("EXPOSURE:maternal_alcohol_use")
+        except:
+            pass
+
+    # ─── MEDIATORS ───────────────────────────────────────
+    # Parity
+    parity = safe(row.get('v201', np.nan))
+    if not pd.isna(parity):
+        try:
+            parity = int(parity)
+            if parity == 0:
+                tokens.append("MEDIATOR:nulliparous")
+            elif parity <= 2:
+                tokens.append("MEDIATOR:low_parity")
+            elif parity <= 4:
+                tokens.append("MEDIATOR:moderate_parity")
+            else:
+                tokens.append("MEDIATOR:high_parity")
+        except:
+            pass
+
+    # Age
+    age = safe(row.get('v012', np.nan))
+    if not pd.isna(age):
+        try:
+            age = int(age)
+            if age < 20:
+                tokens.append("MEDIATOR:adolescent")
+            elif age <= 34:
+                tokens.append("MEDIATOR:prime_reproductive_age")
+            else:
+                tokens.append("MEDIATOR:advanced_maternal_age")
+        except:
+            pass
+
+    # ANC visits
+    anc = safe(row.get('m14_1', np.nan))
+    if not pd.isna(anc):
+        try:
+            anc = int(anc)
+            if anc == 0:
+                tokens.append("MEDIATOR:no_anc")
+            elif anc < 4:
+                tokens.append("MEDIATOR:inadequate_anc")
+            else:
+                tokens.append("MEDIATOR:adequate_anc")
+        except:
+            pass
+
+    # Contraceptive use
+    contra = safe(row.get('v313', np.nan))
+    if not pd.isna(contra):
+        try:
+            if int(contra) == 3:
+                tokens.append("MEDIATOR:modern_contraception")
+            elif int(contra) > 0:
+                tokens.append("MEDIATOR:traditional_contraception")
+            else:
+                tokens.append("MEDIATOR:no_contraception")
+        except:
+            pass
+
+    # Pregnancy interval (GR)
+    short_interval = safe(row.get('gr_short_interval_pct', np.nan))
+    if not pd.isna(short_interval):
+        try:
+            if float(short_interval) > 30:
+                tokens.append("MEDIATOR:short_birth_interval")
+        except:
+            pass
+
+    # ─── HUSBAND/PARTNER (CR) ─────────────────────────────
+    husband_edu = safe(row.get('cr_husband_edu_level', np.nan))
+    if not pd.isna(husband_edu):
+        try:
+            edu_map_h = {0:'no_education', 1:'primary', 2:'secondary', 3:'higher'}
+            h_edu = edu_map_h.get(int(husband_edu), 'unknown')
+            tokens.append(f"HUSBAND:education_{h_edu}")
+        except:
+            pass
+
+    husband_age = safe(row.get('cr_husband_age', np.nan))
+    wife_age = safe(row.get('v012', np.nan))
+    if not pd.isna(husband_age) and not pd.isna(wife_age):
+        try:
+            age_gap = float(husband_age) - float(wife_age)
+            if age_gap > 10:
+                tokens.append("HUSBAND:large_age_gap")
+            elif age_gap > 5:
+                tokens.append("HUSBAND:moderate_age_gap")
+            else:
+                tokens.append("HUSBAND:small_age_gap")
+        except:
+            pass
+
+    husband_alcohol = safe(row.get('cr_husband_alcohol', np.nan))
+    if not pd.isna(husband_alcohol):
+        try:
+            if int(husband_alcohol) == 1:
+                tokens.append("HUSBAND:drinks_alcohol")
+        except:
+            pass
+
+    ipv_severe = safe(row.get('cr_ipv_physical_severe', np.nan))
+    if not pd.isna(ipv_severe):
+        try:
+            if int(ipv_severe) == 1:
+                tokens.append("MEDIATOR:severe_ipv_experienced")
+        except:
+            pass
+
+    n_wives = safe(row.get('cr_husband_n_wives', np.nan))
+    if not pd.isna(n_wives):
+        try:
+            if int(n_wives) > 1:
+                tokens.append("HUSBAND:polygynous")
+        except:
+            pass
+
+    # ─── CHILD OUTCOMES (KR cluster-level) ───────────────
+    stunting = safe(row.get('kr_stunting_pct', np.nan))
+    if not pd.isna(stunting):
+        try:
+            s = float(stunting)
+            if s > 40:
+                tokens.append("CLUSTER:high_stunting_burden")
+            elif s > 20:
+                tokens.append("CLUSTER:moderate_stunting_burden")
+            else:
+                tokens.append("CLUSTER:low_stunting_burden")
+        except:
+            pass
+
+    wasting = safe(row.get('kr_wasting_pct', np.nan))
+    if not pd.isna(wasting):
+        try:
+            w = float(wasting)
+            if w > 15:
+                tokens.append("CLUSTER:high_wasting_burden")
+            elif w > 5:
+                tokens.append("CLUSTER:moderate_wasting_burden")
+            else:
+                tokens.append("CLUSTER:low_wasting_burden")
+        except:
+            pass
+
+    child_anaemia = safe(row.get('kr_child_anaemia_pct', np.nan))
+    if not pd.isna(child_anaemia):
+        try:
+            ca = float(child_anaemia)
+            if ca > 60:
+                tokens.append("CLUSTER:high_child_anaemia")
+            elif ca > 30:
+                tokens.append("CLUSTER:moderate_child_anaemia")
+            else:
+                tokens.append("CLUSTER:low_child_anaemia")
+        except:
+            pass
+
+    # Dietary diversity (GR cluster-level)
+    for var, label in [
+        ('gr_dark_greens', 'dark_greens'),
+        ('gr_animal_protein', 'animal_protein'),
+        ('gr_organ_meat', 'organ_meat'),
+        ('gr_fish', 'fish'),
+        ('gr_palm_oil', 'palm_oil'),
+    ]:
+        val = safe(row.get(var, np.nan))
+        if not pd.isna(val):
+            try:
+                if float(val) > 0.5:
+                    tokens.append(f"DIET:{label}_adequate")
+                else:
+                    tokens.append(f"DIET:{label}_low")
+            except:
+                pass
+
+    # ─── BIOMARKERS ──────────────────────────────────────
+    hb = safe(row.get('v453', np.nan))
+    if not pd.isna(hb):
+        try:
+            hb_val = float(hb) / 10
+            if hb_val < 99:
+                if hb_val < 8.0:
+                    tokens.append("BIOMARKER:severe_anaemia")
+                elif hb_val < 10.0:
+                    tokens.append("BIOMARKER:moderate_anaemia")
+                elif hb_val < 11.0:
+                    tokens.append("BIOMARKER:mild_anaemia")
+                else:
+                    tokens.append("BIOMARKER:normal_haemoglobin")
+        except:
+            pass
+
+    # Anaemia level
+    anaemia_level = safe(row.get('v457', np.nan))
+    if not pd.isna(anaemia_level):
+        try:
+            al = int(anaemia_level)
+            level_map = {1:'severe', 2:'moderate', 3:'mild', 4:'none'}
+            tokens.append(f"OUTCOME:anaemia_{level_map.get(al, 'unknown')}")
+        except:
+            pass
+
+    # Pregnancy loss (GR)
+    preg_loss = safe(row.get('gr_pregnancy_loss_pct', np.nan))
+    if not pd.isna(preg_loss):
+        try:
+            if float(preg_loss) > 20:
+                tokens.append("OUTCOME:high_pregnancy_loss_cluster")
+        except:
+            pass
+
+    # ─── EQUITY MARKERS ──────────────────────────────────
+    tokens.append(f"EQUITY:{zone}")
+    tokens.append(f"EQUITY:{wealth}")
+
+    # Decision autonomy
+    decision = safe(row.get('v743a', np.nan))
+    if not pd.isna(decision):
+        try:
+            if int(decision) == 1:
+                tokens.append("EQUITY:health_decision_autonomous")
+            elif int(decision) in [2, 3]:
+                tokens.append("EQUITY:health_decision_shared")
+            else:
+                tokens.append("EQUITY:health_decision_husband_controlled")
+        except:
+            pass
+
+    # Financial autonomy
+    bank = safe(row.get('v170', np.nan))
+    if not pd.isna(bank):
+        try:
+            if int(bank) == 1:
+                tokens.append("EQUITY:has_bank_account")
+        except:
+            pass
 
     return " | ".join(tokens)
 
 
-def tokenise_dataset(parquet_path: str, sample_n: int = None) -> pd.DataFrame:
-    print("Loading merged dataset...")
-    df = pd.read_parquet(parquet_path)
-
-    if sample_n:
-        df = df.sample(n=sample_n, random_state=42)
-
-    print(f"Tokenising {len(df):,} records...")
-    df['population_token'] = df.apply(tokenise_record, axis=1)
-
-    print(f"\nDone. Sample token:")
-    print(df['population_token'].iloc[0])
-    return df
-
-
 if __name__ == "__main__":
-    df = tokenise_dataset(
-        "/Users/theoneglobal/epicause_ng/data/processed/ndhs2024_merged.parquet",
-        sample_n=100
+    import sys
+    sys.path.append('/Users/theoneglobal/epicause_ng')
+    df = pd.read_parquet(
+        "/Users/theoneglobal/epicause_ng/data/processed/ndhs2024_merged.parquet"
     )
-    print(f"\nToken length stats:")
-    df['token_length'] = df['population_token'].str.len()
-    print(df['token_length'].describe().round(0))
-
-    df[['v001','v002','v024','v190','population_token']].to_csv(
-        "/Users/theoneglobal/epicause_ng/data/tokens/sample_tokens.csv",
-        index=False
-    )
-    print("\nSample tokens saved to data/tokens/sample_tokens.csv")
+    print(f"Dataset: {df.shape[0]:,} records, {df.shape[1]:,} vars")
+    sample = df.sample(3, random_state=42)
+    for i, (_, row) in enumerate(sample.iterrows()):
+        token = tokenise_record(row)
+        print(f"\nRecord {i+1}:")
+        print(token)
+        print(f"Token length: {len(token.split('|'))} fields")

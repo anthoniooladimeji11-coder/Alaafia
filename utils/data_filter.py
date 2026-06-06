@@ -96,11 +96,17 @@ def get_geography_stats(
     state_name = STATE_MAP.get(state_code, '') if state_code else ''
     zone_name  = zone.upper() if zone else ''
 
+    # Stunting and wasting from KR cluster aggregates
+    stunting_pct = filtered['kr_stunting_pct'].mean() if 'kr_stunting_pct' in filtered.columns else None
+    wasting_pct  = filtered['kr_wasting_pct'].mean()  if 'kr_wasting_pct'  in filtered.columns else None
+
     return {
         'geography': state_name or zone_name,
         'n_records': len(filtered),
         'n_anaemia_measured': len(anaemia_sub),
         'anaemia_prevalence_pct': round(anaemia_pct, 1) if anaemia_pct else None,
+        'stunting_prevalence_pct': round(float(stunting_pct), 1) if stunting_pct is not None else None,
+        'wasting_prevalence_pct': round(float(wasting_pct), 1) if wasting_pct is not None else None,
         'median_hb_gdl': round(float(hb.median()), 2) if hb.notna().sum() > 0 else None,
         'solid_fuel_pct': round(solid_fuel, 1),
         'unimproved_water_pct': round(unimproved_water, 1),

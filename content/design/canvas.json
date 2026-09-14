@@ -1,0 +1,14 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1080, "h": 1350, "title": "Signal (recommended)" },
+    { "file": "FieldAtlas.dc.html", "x": 1240, "y": 0, "w": 1080, "h": 1350, "title": "Field Atlas" },
+    { "file": "BoldNigeria.dc.html", "x": 2480, "y": 0, "w": 1080, "h": 1350, "title": "Bold Nigeria" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -250, "w": 1000, "text": "ÀLÁÁFÌA — CONTENT KIT, 3 LOOKS\n\nAll three stay in the kit. Pick whichever fits the message that day; the day's actual figure gets built when its slot comes up on the calendar (content/PLAYBOOK.md, ~2/week, Sep 2026 → Jan 2027).\n\nCONSTANT across all three so it still reads as one account: the ÀLÁÁFÌA wordmark, the footer bar (source · alaafia.ng · date), the kicker (ARCHETYPE · NN), the ward-mesh / low-poly map motif, the mono p-code tags. Everything else — palette, type, composition — is the look you chose for that post." },
+    { "id": "opt-signal", "x": 0, "y": -70, "w": 1080, "text": "SIGNAL.  Near-black ground, electric mint + hot coral, mono p-code chrome, telemetry feel. Highest contrast in a fast feed. Use for: build logs, launches, anything that should feel live." },
+    { "id": "opt-atlas", "x": 1240, "y": -70, "w": 1080, "text": "FIELD ATLAS.  Warm paper, sienna accent, serif display, registration marks + marginalia. FT / Reuters-graphics rigor — the uncertainty is the aesthetic. Use for: maps of the week, methodology explainers, anything that needs to feel rigorous." },
+    { "id": "opt-bold", "x": 2480, "y": -70, "w": 1080, "text": "BOLD NIGERIA.  Maximalist poster — flat green/amber blocks, ward-mesh pattern, huge Bricolage display. Feels like a movement, very shareable. Use for: the thesis, one-number posts, milestones — the loud moments." }
+  ],
+  "launch": { "view": "canvas" }
+}

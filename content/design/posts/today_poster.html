@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600&display=swap">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#EFE9DC}
+  .card{
+    width:1080px;height:1350px;position:relative;overflow:hidden;
+    background:#EFE9DC;color:#1A1613;
+    padding:84px 84px 76px;
+    display:flex;flex-direction:column;
+    font-family:"Hanken Grotesk",system-ui,sans-serif;
+  }
+  .disp{font-family:"Bricolage Grotesque","Hanken Grotesk",sans-serif;}
+
+  /* faint tick field — the "many" — tucked into the negative space right of 774 */
+  .ticks{position:absolute;top:196px;right:78px;width:360px;height:470px;opacity:.55;pointer-events:none}
+
+  .top{display:flex;justify-content:space-between;align-items:baseline;position:relative;z-index:2}
+  .mark{font-family:"Bricolage Grotesque";font-weight:700;font-size:23px;letter-spacing:.24em;color:#1A1613}
+  .klabel{font-size:15px;letter-spacing:.28em;text-transform:uppercase;color:#8A8172;font-weight:600}
+
+  .body{flex:1;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2}
+
+  .ey{font-size:29px;letter-spacing:.18em;text-transform:uppercase;color:#8A8172;font-weight:600;margin-bottom:6px}
+  .huge{
+    font-family:"Bricolage Grotesque";font-weight:800;
+    font-size:392px;line-height:.84;letter-spacing:-.03em;color:#1A1613;
+    font-variant-numeric:lining-nums;
+  }
+  .sub{font-family:"Bricolage Grotesque";font-weight:700;font-size:52px;line-height:1.02;letter-spacing:-.01em;color:#1A1613;margin-top:14px}
+
+  .turn{margin-top:64px}
+  .turn .lead{font-size:30px;letter-spacing:.14em;text-transform:uppercase;color:#8A8172;font-weight:600;margin-bottom:10px}
+  .turn .line{font-family:"Bricolage Grotesque";font-weight:700;font-size:66px;line-height:1.0;letter-spacing:-.015em;color:#1A1613}
+  .one{
+    font-family:"Bricolage Grotesque";font-weight:800;
+    font-size:300px;line-height:.82;letter-spacing:-.04em;color:#E39A12;
+    display:block;margin-top:2px;
+  }
+  .one .dot{color:#1A1613}
+
+  .foot{position:relative;z-index:2;border-top:2px solid #1A1613;padding-top:22px;
+        display:flex;justify-content:space-between;align-items:flex-end;gap:24px}
+  .foot .claim{font-family:"Bricolage Grotesque";font-weight:600;font-size:26px;line-height:1.25;max-width:640px;color:#1A1613}
+  .foot .meta{text-align:right;font-size:16px;line-height:1.5;color:#8A8172;font-weight:500;letter-spacing:.02em;white-space:nowrap}
+  .foot .meta b{color:#1A1613;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <svg class="ticks" viewBox="0 0 360 470" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g fill="#1A1613"></g>
+  </svg>
+
+  <div class="top">
+    <span class="mark">ÀLÁÁFÌA</span>
+    <span class="klabel">The&nbsp;thesis&nbsp;·&nbsp;01</span>
+  </div>
+
+  <div class="body">
+    <div class="ey">Nigeria has</div>
+    <div class="huge">774</div>
+    <div class="sub">local governments.</div>
+
+    <div class="turn">
+      <div class="lead">For most health decisions,</div>
+      <div class="line">we plan like it has</div>
+      <span class="one">one<span class="dot">.</span></span>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="claim">We&rsquo;re building the number that fixes this — every place in Nigeria, down to the ward.</div>
+    <div class="meta"><b>Building in public</b><br>Live January 2026<br>alaafia.ng</div>
+  </div>
+</div>
+
+<script>
+  // paint the tick field: grid of small squares, a few omitted, one orange — the "many vs one"
+  (function(){
+    const g = document.querySelector('.ticks g');
+    const cols=8, rows=11, gap=46, s=9;
+    let out='';
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        if((r*7+c*3)%13===0) continue;            // scatter some gaps
+        const x=c*gap+4, y=r*gap+4;
+        const orange = (r===6 && c===5);
+        out += `<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${orange?'#E39A12':'#1A1613'}" opacity="${orange?1:.85}"/>`;
+      }
+    }
+    g.innerHTML = out;
+  })();
+</script>
+</body>
+</html>

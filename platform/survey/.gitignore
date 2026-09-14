@@ -1,0 +1,10 @@
+# raw API pages — re-fetchable via `surveylayer fetch`
+data/raw/
+
+# local duckdb — rebuilt by `surveylayer build`
+data/survey/survey.duckdb
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

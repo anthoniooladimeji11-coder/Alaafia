@@ -1,0 +1,623 @@
+<meta charset="utf-8">
+<title>Àlááfìa Estimates</title>
+<meta name="description" content="Nigeria's health indicators, modelled to state and LGA level — direct survey figures shrunk toward geography, with an honest margin of error on every one.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ============================================================ tokens ===== */
+:root{
+  color-scheme: light;
+  --ground:#F4F2EC; --surface:#FBFAF7; --sunk:#ECE9DF;
+  --ink:#1B211E; --muted:#5B6A62; --faint:#8A968E;
+  --line:#DAD5C6; --line-strong:#C3BCA8;
+  --good:#0F9F63; --good-ink:#0B6B44;
+  --mid:#C79A2E;
+  --bad:#B0432E; --bad-ink:#8A331F;
+  --sea:#E8E5DA;
+  --focus:#0F9F63;
+  --shadow:0 1px 2px rgba(20,26,23,.06), 0 8px 30px rgba(20,26,23,.06);
+  --pad:clamp(14px, 2.4vw, 26px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#0B0F0E; --surface:#141A18; --sunk:#0D1211;
+    --ink:#E6EDE9; --muted:#82968C; --faint:#5C6C64;
+    --line:#26302C; --line-strong:#33413B;
+    --good:#35D08A; --good-ink:#8FE9C0;
+    --mid:#E0BC5C;
+    --bad:#E0705A; --bad-ink:#F0A08D;
+    --sea:#0E1413;
+    --focus:#35D08A;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 40px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0B0F0E; --surface:#141A18; --sunk:#0D1211;
+  --ink:#E6EDE9; --muted:#82968C; --faint:#5C6C64;
+  --line:#26302C; --line-strong:#33413B;
+  --good:#35D08A; --good-ink:#8FE9C0;
+  --mid:#E0BC5C;
+  --bad:#E0705A; --bad-ink:#F0A08D;
+  --sea:#0E1413;
+  --focus:#35D08A;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 40px rgba(0,0,0,.4);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0; font-weight:600; line-height:1.15; text-wrap:balance}
+button{font:inherit; color:inherit; cursor:pointer; background:none; border:none}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px; border-radius:2px}
+.mono{font-family:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace}
+.tnum{font-variant-numeric:tabular-nums}
+
+#app{height:100%; display:grid; grid-template-rows:auto minmax(0,1fr) auto}
+
+header.top{
+  display:flex; align-items:baseline; gap:18px 22px; flex-wrap:wrap;
+  padding:14px var(--pad) 13px; border-bottom:1px solid var(--line); background:var(--surface);
+}
+.brand{display:flex; align-items:baseline; gap:10px}
+.brand .mk{font-weight:700; font-size:16px; letter-spacing:.02em}
+.brand .sep{color:var(--line-strong)}
+.brand .what{font-size:13px; color:var(--muted)}
+header .tag{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted);
+  border:1px solid var(--line-strong); padding:3px 8px 2px; border-radius:2px}
+header .grow{flex:1}
+.themebtn{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+  border:1px solid var(--line-strong); padding:5px 10px 4px; border-radius:2px}
+.themebtn:hover{color:var(--ink); border-color:var(--muted)}
+
+main{display:grid; grid-template-columns:340px minmax(0,1fr) 320px; min-height:0}
+@media (max-width:1100px){ main{grid-template-columns:300px minmax(0,1fr)} .inspect{display:none} }
+@media (max-width:760px){ main{grid-template-columns:1fr} .picker{display:none} }
+
+/* --- indicator picker ------------------------------------------------- */
+.picker{border-right:1px solid var(--line); background:var(--surface); display:flex; flex-direction:column; min-height:0}
+.picker .search{padding:11px var(--pad) 9px; border-bottom:1px solid var(--line)}
+.picker .search input{width:100%; padding:8px 10px; font-size:13px; background:var(--sunk); color:var(--ink);
+  border:1px solid var(--line-strong); border-radius:2px}
+.picker .list{overflow:auto; flex:1; padding-bottom:8px}
+.picker .dom{padding:10px var(--pad) 5px; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+.picker .item{display:block; width:100%; text-align:left; padding:8px var(--pad); font-size:13px; color:var(--ink);
+  border-left:2px solid transparent}
+.picker .item .yrs{display:block; font-size:10.5px; color:var(--faint); margin-top:1px; letter-spacing:.02em}
+.picker .item:hover{background:var(--sunk)}
+.picker .item.sel{background:var(--sunk); border-left-color:var(--focus); font-weight:600}
+
+/* --- map ---------------------------------------------------------------- */
+.mapwrap{position:relative; min-width:0; overflow:hidden; background:var(--sea); border-right:1px solid var(--line)}
+#map{position:absolute; inset:0; width:100%; height:100%; display:block}
+.mapframe{position:absolute; inset:12px; border:1px solid var(--line-strong); pointer-events:none}
+.tick{position:absolute; font-size:10px; letter-spacing:.06em; color:var(--faint); background:var(--sea); padding:0 4px}
+.tick.x{top:4px; transform:translateX(-50%)}
+.tick.y{left:4px; transform:translateY(-50%)}
+
+.mapctl{position:absolute; left:20px; bottom:18px; z-index:4; display:flex; flex-direction:column; gap:1px;
+  border:1px solid var(--line-strong); background:var(--surface); box-shadow:var(--shadow)}
+.mapctl button{width:34px; height:32px; font-size:15px; color:var(--muted); display:grid; place-items:center}
+.mapctl button+button{border-top:1px solid var(--line)}
+.mapctl button:hover{color:var(--ink); background:var(--sunk)}
+
+.banner{position:absolute; left:20px; top:20px; right:20px; z-index:4; max-width:520px;
+  background:var(--surface); border:1px solid var(--line-strong); box-shadow:var(--shadow);
+  padding:10px 13px; font-size:12px; line-height:1.5; color:var(--muted)}
+.banner b{color:var(--ink)}
+.banner.synthetic{border-color:var(--bad); color:var(--bad-ink)}
+.banner.synthetic b{color:var(--bad-ink)}
+
+.legend{position:absolute; right:20px; bottom:18px; z-index:4; background:var(--surface);
+  border:1px solid var(--line-strong); box-shadow:var(--shadow); padding:11px 13px 12px; width:236px}
+.legend h4{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:500; margin-bottom:2px}
+.legend .unit{font-size:10px; color:var(--faint); margin-bottom:8px}
+.legend .ramp{display:flex; height:10px; margin:3px 0 5px; border-radius:1px; overflow:hidden}
+.legend .ramp i{flex:1}
+.legend .ends{display:flex; justify-content:space-between; font-size:10.5px; color:var(--faint)}
+.legend .dir{display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-top:2px; letter-spacing:.02em}
+
+#map .unit{stroke:var(--sea); stroke-width:.5; cursor:pointer; transition:fill .15s}
+#map .unit:hover{stroke:var(--ink); stroke-width:1.1}
+#map .unit.dim{opacity:.28; pointer-events:none}
+#map .unit.sel{stroke:var(--ink); stroke-width:1.3}
+#map .unit.nodata{fill:var(--sunk)!important}
+#map .border{fill:none; stroke:var(--line-strong); stroke-width:.7; pointer-events:none}
+#map .border.state{stroke:var(--ink); stroke-width:.9; opacity:.5}
+/* font-size and stroke-width are set per-frame in JS (applyZoom/placeLabels), inversely
+   scaled to the zoom level so on-screen text size stays constant. A CSS font-size here
+   would silently win over that .attr() call — SVG presentation attributes lose to any
+   stylesheet rule — and un-scale every label back to a literal 10px, growing with zoom. */
+#map .glabel{font-family:"JetBrains Mono", monospace; fill:var(--ink); pointer-events:none;
+  text-anchor:middle; paint-order:stroke; stroke:var(--sea)}
+
+/* --- inspector --------------------------------------------------------- */
+.inspect{border-left:1px solid var(--line); background:var(--surface); display:flex; flex-direction:column; min-height:0}
+.crumbs{display:flex; align-items:center; gap:4px; flex-wrap:wrap; padding:12px var(--pad) 10px;
+  border-bottom:1px solid var(--line); font-size:11px}
+.crumbs button{color:var(--muted); letter-spacing:.05em; text-transform:uppercase; padding:2px 3px}
+.crumbs button:hover{color:var(--ink)}
+.crumbs button:last-child{color:var(--ink)}
+.crumbs .car{color:var(--line-strong)}
+
+.detail{padding:15px var(--pad) 16px; overflow:auto; flex:1}
+.detail .lvl{font-size:10px; letter-spacing:.13em; text-transform:uppercase; color:var(--good-ink); font-weight:500}
+.detail h2{font-size:22px; margin:3px 0 2px; letter-spacing:-.01em}
+.detail .ind{font-size:12.5px; color:var(--muted); margin-bottom:14px}
+
+.big{border:1px solid var(--line); padding:14px 15px; margin-bottom:12px}
+.big .k{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint)}
+.big .v{font-size:34px; margin-top:3px; letter-spacing:-.01em}
+.big .ci{font-size:12px; color:var(--muted); margin-top:3px}
+
+.facts{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border:1px solid var(--line); margin-bottom:14px}
+.facts div{background:var(--surface); padding:9px 11px}
+.facts .k{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint)}
+.facts .v{font-size:15px; margin-top:2px}
+
+.synth{border:1px solid var(--bad); padding:10px 12px; font-size:12px; line-height:1.5; color:var(--bad-ink); margin-bottom:14px}
+.synth b{display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:4px}
+
+.kids{margin-top:4px}
+.kids .hd{display:flex; justify-content:space-between; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--faint); padding-bottom:6px; border-bottom:1px solid var(--line)}
+.kidrow{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 2px;
+  border-bottom:1px solid var(--line); width:100%; text-align:left}
+.kidrow:hover{background:var(--sunk)}
+.kidrow .nm{font-size:13px}
+.kidrow .v{font-size:13px; flex:none}
+
+.search2{padding:11px var(--pad); border-bottom:1px solid var(--line); position:relative}
+.search2 input{width:100%; padding:8px 10px; font-size:13px; background:var(--sunk); color:var(--ink);
+  border:1px solid var(--line-strong); border-radius:2px}
+.results{position:absolute; left:var(--pad); right:var(--pad); top:calc(100% - 4px); background:var(--surface);
+  border:1px solid var(--line-strong); box-shadow:var(--shadow); z-index:9; max-height:260px; overflow:auto}
+.results button{display:flex; justify-content:space-between; gap:10px; width:100%; padding:7px 11px; font-size:12px;
+  text-align:left; border-bottom:1px solid var(--line)}
+.results button:hover{background:var(--sunk)}
+.results .lv{color:var(--faint); font-size:10px; letter-spacing:.06em; text-transform:uppercase}
+
+footer.bot{display:flex; gap:8px 20px; flex-wrap:wrap; align-items:baseline; padding:9px var(--pad) 10px;
+  border-top:1px solid var(--line); background:var(--surface); font-size:11px; color:var(--muted)}
+footer .n{color:var(--ink)}
+footer .grow{flex:1}
+footer .dim{color:var(--faint)}
+
+#boot{position:fixed; inset:0; display:grid; place-items:center; background:var(--ground); z-index:50;
+  color:var(--muted); font-size:12px; letter-spacing:.1em; text-transform:uppercase}
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <span class="mk">Àlááfìa</span><span class="sep">/</span><span class="what">the estimates</span>
+    </div>
+    <span class="tag" id="buildtag">build —</span>
+    <span class="grow"></span>
+    <button class="themebtn" id="themebtn">Theme</button>
+  </header>
+
+  <main>
+    <section class="picker">
+      <div class="search"><input id="isearch" type="text" placeholder="Find an indicator…" autocomplete="off"></div>
+      <div class="list" id="ilist"></div>
+    </section>
+
+    <section class="mapwrap" id="mapwrap">
+      <svg id="map" aria-label="Map of modelled indicator values"></svg>
+      <div class="mapframe"></div>
+      <div class="banner" id="banner"></div>
+      <div class="mapctl">
+        <button id="zin" aria-label="Zoom in">+</button>
+        <button id="zout" aria-label="Zoom out">−</button>
+        <button id="zrst" aria-label="Reset view" title="Reset">⤾</button>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <aside class="inspect">
+      <nav class="crumbs" id="crumbs"></nav>
+      <div class="search2">
+        <input id="q" type="text" placeholder="Find a state or LGA…" autocomplete="off" spellcheck="false">
+        <div class="results" id="results" hidden></div>
+      </div>
+      <div class="detail" id="detail"></div>
+    </aside>
+  </main>
+
+  <footer class="bot" id="footer"></footer>
+</div>
+
+<div id="boot">loading the estimates…</div>
+
+<script id="bundle" type="application/json">__BUNDLE__</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+(function(){
+"use strict";
+const B = JSON.parse(document.getElementById("bundle").textContent);
+const RM = matchMedia("(prefers-reduced-motion:reduce)").matches;
+const fnum = n => n==null||isNaN(n) ? "—" : n.toLocaleString("en-US");
+
+/* ---------- indexes --------------------------------------------------- */
+const stateBy = new Map(B.states.map(d=>[d.p,d]));
+const lgaBy   = new Map(B.lgas.map(d=>[d.p,d]));
+const lgasOf  = d3.group(B.lgas, d=>d.s);
+const indBy   = new Map(B.indicators.map(d=>[d.slug,d]));
+const domains = [...new Set(B.indicators.map(d=>d.domain))].sort();
+
+// columnar -> Map<slug, Map<pcode, row>>
+function toIndex(cols, keyField){
+  const idx = new Map();
+  const n = cols[keyField].length;
+  for(let i=0;i<n;i++){
+    const slug = cols.slug[i];
+    if(!idx.has(slug)) idx.set(slug, new Map());
+    const row = {}; for(const k in cols) if(k!=="slug") row[k]=cols[k][i];
+    idx.get(slug).set(cols[keyField][i], row);
+  }
+  return idx;
+}
+const stateEst = toIndex(B.est_state, "p");
+const lgaEst = toIndex(B.est_lga, "p");
+
+const searchIx = [];
+B.states.forEach(d=>searchIx.push({n:d.n,p:d.p,lv:"state"}));
+B.lgas.forEach(d=>searchIx.push({n:d.n,p:d.p,lv:"lga",par:d.s}));
+
+/* ---------- geometry --------------------------------------------------- */
+const stTopo = B.geometry.states, lgTopo = B.geometry.lgas;
+const stFC = topojson.feature(stTopo, stTopo.objects.lga_raw);
+const lgFC = topojson.feature(lgTopo, lgTopo.objects.lga_raw);
+const lgByState = d3.group(lgFC.features, f=>f.id.slice(0,5));
+const stMesh = topojson.mesh(stTopo, stTopo.objects.lga_raw, (a,b)=>a!==b);
+const stOuter = topojson.mesh(stTopo, stTopo.objects.lga_raw, (a,b)=>a===b);
+
+/* ---------- dom / projection ------------------------------------------ */
+const wrap = document.getElementById("mapwrap");
+const svg = d3.select("#map");
+const gRoot = svg.append("g");
+const gFill = gRoot.append("g");
+const gLine = gRoot.append("g");
+const gLab = gRoot.append("g");
+const proj = d3.geoMercator();
+const path = d3.geoPath(proj);
+let W=0,H=0; const PAD=26;
+
+/* ---------- state -------------------------------------------------- */
+let sel = {lv:"nation", p:"NG"};
+let curSlug = B.indicators[0].slug;
+let zt = d3.zoomIdentity;
+let colorScale = null;
+
+function applyZoom(t){
+  zt = t;
+  gRoot.attr("transform", t);
+  gLine.selectAll("path").attr("stroke-width", d=>1/t.k*(d==="s"?0.9:0.7));
+  gRoot.selectAll(".unit").attr("stroke-width", function(){
+    return (this.classList.contains("sel")?1.3:0.5)/t.k;
+  });
+  gLab.selectAll("text").attr("font-size",(sel.lv==="nation"?10.5:10)/t.k).attr("stroke-width",2.6/t.k)
+    .attr("opacity", sel.lv==="nation" ? (t.k>1.55?.92:0) : (t.k>1.9?.95:0));
+}
+const zoom = d3.zoom().scaleExtent([1,40]).on("zoom", ev=>applyZoom(ev.transform));
+svg.call(zoom).on("dblclick.zoom", null);
+
+let flyRAF=0;
+function setView(T, animate){
+  cancelAnimationFrame(flyRAF);
+  svg.node().__zoom = T;
+  if(!animate||RM){ applyZoom(T); return; }
+  const s=zt, t0=performance.now(), dur=620;
+  const ease=x=> x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+  (function step(now){
+    const p=Math.min(1,(now-t0)/dur), e=ease(p);
+    applyZoom(d3.zoomIdentity.translate(s.x+(T.x-s.x)*e, s.y+(T.y-s.y)*e).scale(s.k+(T.k-s.k)*e));
+    if(p<1) flyRAF=requestAnimationFrame(step);
+  })(t0);
+}
+function flyTo(){
+  let T = d3.zoomIdentity;
+  if(sel.lv!=="nation"){
+    const f=(sel.lv==="state"?stFC:lgFC).features.find(x=>x.id===sel.p);
+    if(f){
+      const b=path.bounds(f), dx=Math.max(1,b[1][0]-b[0][0]), dy=Math.max(1,b[1][1]-b[0][1]);
+      const k=Math.max(1, Math.min(34, 0.82/Math.max(dx/W,dy/H)));
+      const cx=(b[0][0]+b[1][0])/2, cy=(b[0][1]+b[1][1])/2;
+      T = d3.zoomIdentity.translate(W/2-k*cx, H/2-k*cy).scale(k);
+    }
+  }
+  setView(T, true);
+}
+
+function resize(){
+  const r = wrap.getBoundingClientRect();
+  if(Math.abs(r.width-W)<1 && Math.abs(r.height-H)<1) return;
+  W=r.width; H=r.height;
+  svg.attr("viewBox",`0 0 ${W} ${H}`);
+  proj.fitExtent([[PAD,PAD],[W-PAD,H-PAD]], stFC);
+  gFill.selectAll("path").attr("d",path);
+  gLine.selectAll("path").attr("d",path);
+  placeLabels();
+  ticks();
+}
+
+/* ---------- colour ------------------------------------------------- */
+function buildScale(){
+  const ind = indBy.get(curSlug);
+  const rows = [...stateEst.get(curSlug).values()];
+  const vals = rows.map(r=>r.fh);
+  const lo=d3.min(vals), hi=d3.max(vals), mid=(lo+hi)/2;
+  const good = getCSS("--good"), midc = getCSS("--mid"), bad = getCSS("--bad");
+  const range = ind.worse_high ? [good,midc,bad] : [bad,midc,good];
+  colorScale = d3.scaleLinear().domain([lo,mid,hi]).range(range).interpolate(d3.interpolateRgb).clamp(true);
+  colorScale._lo=lo; colorScale._hi=hi;
+}
+function getCSS(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function fillFor(pcode, isLGA){
+  const row = (isLGA?lgaEst:stateEst).get(curSlug)?.get(pcode);
+  if(!row) return null;
+  return colorScale(isLGA?row.est:row.fh);
+}
+
+/* ---------- render --------------------------------------------------- */
+function stateSel(){ return sel.lv==="nation"?null:(sel.lv==="state"?sel.p:sel.p.slice(0,5)); }
+function render(){
+  const atNation = sel.lv==="nation";
+  const feats = atNation ? stFC.features : (lgByState.get(stateSel())||[]);
+  const isLGA = !atNation;
+
+  const u = gFill.selectAll(".unit").data(feats, f=>f.id);
+  u.exit().remove();
+  u.enter().append("path").attr("class","unit").attr("d",path)
+      .on("click",(e,f)=> isLGA ? pick("lga",f.id) : pick("state",f.id))
+    .merge(u)
+      .attr("d",path)
+      .attr("fill", f=>{ const c = fillFor(f.id, isLGA); return c || "var(--sunk)"; })
+      .classed("nodata", f=> !fillFor(f.id, isLGA))
+      .classed("sel", f=> (sel.lv==="state"&&f.id===sel.p)||(sel.lv==="lga"&&f.id===sel.p))
+      .classed("dim", f=> sel.lv==="lga" && f.id!==sel.p);
+
+  gLine.selectAll("path").remove();
+  gLine.append("path").datum("s").attr("class","border state").attr("d",path(stMesh));
+  gLine.append("path").datum("o").attr("class","border").attr("d",path(stOuter));
+  placeLabels();
+  banner();
+}
+function placeLabels(){
+  let data=[];
+  if(sel.lv==="nation") data = stFC.features.map(f=>({t:stateBy.get(f.id).n.toUpperCase(), c:proj([stateBy.get(f.id).lon,stateBy.get(f.id).lat])}));
+  else data = (lgasOf.get(stateSel())||[]).map(l=>({t:l.n, c:proj([l.lon,l.lat])}));
+  const t = gLab.selectAll("text").data(data);
+  t.exit().remove();
+  t.enter().append("text").attr("class","glabel").merge(t)
+    .attr("x",d=>d.c[0]).attr("y",d=>d.c[1])
+    .attr("font-size",(sel.lv==="nation"?10.5:10)/zt.k).attr("stroke-width",2.6/zt.k)
+    .attr("opacity", sel.lv==="nation" ? (zt.k>1.55?.92:0) : (zt.k>1.9?.95:0))
+    .text(d=>d.t);
+}
+function banner(){
+  const $b = document.getElementById("banner");
+  if(sel.lv==="lga"){
+    $b.className="banner synthetic";
+    $b.innerHTML = "<b>Model estimate, not a local measurement.</b> LGA figures are a regression on geography, benchmarked to the state's own survey number — not sampled here. See the panel's margin of error.";
+  } else {
+    $b.className="banner";
+    $b.innerHTML = "<b>State figures</b> are shrunk toward the covariates in proportion to how noisy that state's own survey sample is — not raw survey output. Click a state to see both.";
+  }
+}
+
+/* ---------- pick / drill -------------------------------------------- */
+function pick(lv,p,noZoom){
+  if(lv==="state") sel={lv:"state",p};
+  else if(lv==="lga") sel={lv:"lga",p};
+  else sel={lv:"nation",p:"NG"};
+  render(); paint(); if(!noZoom) flyTo();
+}
+
+/* ---------- inspector -------------------------------------------- */
+const $detail=document.getElementById("detail"), $crumbs=document.getElementById("crumbs");
+function paint(){ crumbs(); detail(); }
+function crumbs(){
+  const parts=[["NIGERIA",()=>pick("nation")]];
+  const ss=stateSel();
+  if(ss) parts.push([stateBy.get(ss).n.toUpperCase(), ()=>pick("state",ss)]);
+  if(sel.lv==="lga") parts.push([lgaBy.get(sel.p).n.toUpperCase(), null]);
+  $crumbs.innerHTML="";
+  parts.forEach((p,i)=>{
+    if(i) $crumbs.insertAdjacentHTML("beforeend",'<span class="car">›</span>');
+    const b=document.createElement("button"); b.textContent=p[0];
+    if(p[1]) b.onclick=p[1]; else b.disabled=true;
+    $crumbs.appendChild(b);
+  });
+}
+function fmtv(v,unit){ return unit==="rate_1000" ? v.toFixed(1) : v.toFixed(1)+"%"; }
+function detail(){
+  const ind = indBy.get(curSlug);
+  if(sel.lv==="nation") return detailNation(ind);
+  if(sel.lv==="state") return detailState(ind, stateBy.get(sel.p));
+  return detailLGA(ind, lgaBy.get(sel.p));
+}
+function detailNation(ind){
+  const pairs = [...stateEst.get(curSlug).entries()].sort((a,b)=>a[1].fh-b[1].fh);   // [pcode,row][]
+  const lo = ind.worse_high ? pairs[0] : pairs[pairs.length-1];
+  const hi = ind.worse_high ? pairs[pairs.length-1] : pairs[0];
+  $detail.innerHTML = `
+    <div class="lvl">Level 0 · National</div>
+    <h2>Nigeria</h2>
+    <div class="ind mono">${ind.label} &middot; ${ind.unit==="rate_1000"?"per 1,000":"%"} &middot; ${ind.domain}</div>
+    <div class="facts">
+      <div><div class="k">Best state</div><div class="v">${stateBy.get(lo[0]).n} &middot; ${fmtv(lo[1].fh, ind.unit)}</div></div>
+      <div><div class="k">Widest gap</div><div class="v">${stateBy.get(hi[0]).n} &middot; ${fmtv(hi[1].fh, ind.unit)}</div></div>
+    </div>
+    <div class="kids">
+      <div class="hd"><span>37 states</span><span>modelled estimate</span></div>
+      ${pairs.map(([p,r])=>
+        `<button class="kidrow" data-pick="state:${p}"><span class="nm">${stateBy.get(p).n}</span>
+          <span class="v tnum" style="color:${colorScale(r.fh)}">${fmtv(r.fh, ind.unit)}</span></button>`
+      ).join("")}
+    </div>`;
+}
+function detailState(ind, s){
+  const row = stateEst.get(curSlug).get(s.p);
+  const kids = (lgasOf.get(s.p)||[]).map(l=>({l, r: lgaEst.get(curSlug)?.get(l.p)}))
+              .filter(x=>x.r).sort((a,b)=> ind.worse_high ? a.r.est-b.r.est : b.r.est-a.r.est);
+  if(!row){
+    $detail.innerHTML = `<div class="lvl">Level 1 · State</div><h2>${s.n}</h2>
+      <div class="ind mono">${ind.label}</div>
+      <div class="synth"><b>No direct estimate</b>${s.n} didn't have enough of a sample for this indicator in this round.</div>`;
+    return;
+  }
+  $detail.innerHTML = `
+    <div class="lvl">Level 1 · State</div>
+    <h2>${s.n}</h2>
+    <div class="ind mono">${ind.label} &middot; ${B.survey_id.join(", ")}</div>
+    <div class="big">
+      <div class="k">Modelled estimate (shrunk toward geography)</div>
+      <div class="v tnum" style="color:${colorScale(row.fh)}">${fmtv(row.fh, ind.unit)}</div>
+      <div class="ci tnum">${fmtv(row.lo,ind.unit)} – ${fmtv(row.hi,ind.unit)} (95% interval) &middot; se ${row.se}</div>
+    </div>
+    <div class="facts">
+      <div><div class="k">Direct survey figure</div><div class="v tnum">${fmtv(row.direct, ind.unit)}</div></div>
+      <div><div class="k">Trust in own sample</div><div class="v tnum">${Math.round(row.gamma*100)}%</div></div>
+      <div><div class="k">Sampling variance</div><div class="v" style="font-size:12px">${row.psi==="api_ci"?"from survey CI":"approximated (no CI published)"}</div></div>
+      <div><div class="k">LGAs with an estimate</div><div class="v tnum">${kids.length} / ${(lgasOf.get(s.p)||[]).length}</div></div>
+    </div>
+    <div class="kids">
+      <div class="hd"><span>${kids.length} LGAs</span><span>synthetic estimate</span></div>
+      ${kids.map(({l,r})=>`<button class="kidrow" data-pick="lga:${l.p}"><span class="nm">${l.n}</span>
+        <span class="v tnum" style="color:${colorScale(r.est)}">${fmtv(r.est, ind.unit)}</span></button>`).join("")}
+    </div>`;
+}
+function detailLGA(ind, l){
+  const s = stateBy.get(l.s);
+  const row = lgaEst.get(curSlug)?.get(l.p);
+  const srow = stateEst.get(curSlug)?.get(l.s);
+  if(!row){
+    $detail.innerHTML = `<div class="lvl">Level 2 · LGA</div><h2>${l.n}</h2>
+      <div class="ind mono">${ind.label} &middot; ${s.n}</div>
+      <div class="synth"><b>No estimate for this LGA</b>Missing a covariate this indicator's model needs.</div>`;
+    return;
+  }
+  $detail.innerHTML = `
+    <div class="lvl">Level 2 · LGA</div>
+    <h2>${l.n}</h2>
+    <div class="ind mono">${ind.label} &middot; ${s.n}</div>
+    <div class="big">
+      <div class="k">Synthetic estimate</div>
+      <div class="v tnum" style="color:${colorScale(row.est)}">${fmtv(row.est, ind.unit)}</div>
+      <div class="ci tnum">${fmtv(row.lo,ind.unit)} – ${fmtv(row.hi,ind.unit)} &middot; se floor ${row.se}</div>
+    </div>
+    <div class="synth"><b>Read this carefully</b>No survey was sampled in ${l.n} for this indicator. This number comes from a regression on geography, benchmarked so ${s.n}'s LGAs average back to the state's own figure (${fmtv(srow.fh,ind.unit)}). The margin of error shown is the <i>state's</i> — the true LGA-level uncertainty is higher.</div>`;
+}
+$detail.addEventListener("click", e=>{
+  const b=e.target.closest("[data-pick]"); if(!b) return;
+  const [lv,p]=b.dataset.pick.split(":"); pick(lv,p);
+});
+
+/* ---------- legend -------------------------------------------------- */
+function legend(){
+  const ind = indBy.get(curSlug);
+  const $l = document.getElementById("legend");
+  const stops = 6, ramp=[];
+  for(let i=0;i<stops;i++) ramp.push(colorScale(colorScale._lo + (colorScale._hi-colorScale._lo)*i/(stops-1)));
+  $l.innerHTML = `<h4>${ind.label}</h4><div class="unit">${ind.domain} &middot; ${ind.unit==="rate_1000"?"per 1,000":"%"}</div>
+    <div class="ramp">${ramp.map(c=>`<i style="background:${c}"></i>`).join("")}</div>
+    <div class="ends"><span>${fmtv(colorScale._lo,ind.unit)}</span><span>${fmtv(colorScale._hi,ind.unit)}</span></div>
+    <div class="dir"><span>${ind.worse_high?"better":"worse"}</span><span>${ind.worse_high?"worse":"better"}</span></div>`;
+}
+
+/* ---------- indicator picker ----------------------------------------- */
+function renderPicker(filter){
+  const f = (filter||"").toLowerCase();
+  const $l = document.getElementById("ilist");
+  $l.innerHTML="";
+  domains.forEach(dom=>{
+    const items = B.indicators.filter(i=>i.domain===dom && i.label.toLowerCase().includes(f));
+    if(!items.length) return;
+    $l.insertAdjacentHTML("beforeend", `<div class="dom">${dom.replace(/_/g," ")}</div>`);
+    items.forEach(i=>{
+      const b=document.createElement("button");
+      b.className="item"+(i.slug===curSlug?" sel":"");
+      b.innerHTML = `${i.label}<span class="yrs">${i.years} &middot; ${i.n_surveys} round${i.n_surveys>1?"s":""}</span>`;
+      b.onclick=()=>{ curSlug=i.slug; buildScale(); render(); legend(); paint(); renderPicker(document.getElementById("isearch").value); };
+      $l.appendChild(b);
+    });
+  });
+}
+document.getElementById("isearch").addEventListener("input", e=>renderPicker(e.target.value));
+
+/* ---------- place search ---------------------------------------------- */
+const $q=document.getElementById("q"), $res=document.getElementById("results");
+$q.addEventListener("input", ()=>{
+  const v=$q.value.trim().toLowerCase();
+  if(v.length<2){ $res.hidden=true; return; }
+  const hits = searchIx.filter(it=>it.n.toLowerCase().includes(v)).slice(0,12);
+  hits.sort((a,b)=>({state:0,lga:1})[a.lv]-({state:0,lga:1})[b.lv]);
+  $res.innerHTML = hits.map(h=>{
+    const par = h.lv==="lga" ? stateBy.get(h.par)?.n : "";
+    return `<button data-go="${h.lv}:${h.p}"><span>${h.n}${par?` <span class="lv">&middot; ${par}</span>`:""}</span><span class="lv">${h.lv}</span></button>`;
+  }).join("");
+  $res.hidden=false;
+});
+$res.addEventListener("click", e=>{
+  const b=e.target.closest("[data-go]"); if(!b) return;
+  const [lv,p]=b.dataset.go.split(":"); pick(lv,p);
+  $q.value=""; $res.hidden=true;
+});
+document.addEventListener("click", e=>{ if(!e.target.closest(".search2")) $res.hidden=true; });
+
+/* ---------- controls --------------------------------------------- */
+document.getElementById("zin").onclick=()=>{ const k=Math.min(34,zt.k*1.6), cx=W/2, cy=H/2;
+  setView(d3.zoomIdentity.translate(cx-(cx-zt.x)/zt.k*k, cy-(cy-zt.y)/zt.k*k).scale(k), true); };
+document.getElementById("zout").onclick=()=>{ const k=Math.max(1,zt.k/1.6), cx=W/2, cy=H/2;
+  setView(d3.zoomIdentity.translate(cx-(cx-zt.x)/zt.k*k, cy-(cy-zt.y)/zt.k*k).scale(k), true); };
+document.getElementById("zrst").onclick=()=>pick("nation");
+document.addEventListener("keydown", e=>{ if(e.key==="Escape"){ if(sel.lv==="lga") pick("state",stateSel()); else if(sel.lv==="state") pick("nation"); }});
+
+/* ---------- theme ---------------------------------------------------- */
+const $tb=document.getElementById("themebtn");
+function sysDark(){return matchMedia("(prefers-color-scheme:dark)").matches;}
+let theme=null;
+$tb.onclick=()=>{
+  theme = (theme||(sysDark()?"dark":"light"))==="dark" ? "light":"dark";
+  document.documentElement.dataset.theme=theme;
+  buildScale(); render(); legend();
+};
+
+/* ---------- ticks --------------------------------------------------- */
+function ticks(){
+  wrap.querySelectorAll(".tick").forEach(n=>n.remove());
+  const b0=proj.invert([PAD+12,PAD+12]), b1=proj.invert([W-PAD-12,H-PAD-12]);
+  const lon0=Math.ceil(b0[0]), lon1=Math.floor(b1[0]), lat1=Math.floor(b0[1]), lat0=Math.ceil(b1[1]);
+  for(let x=lon0;x<=lon1;x+=2){ const px=proj([x,b0[1]])[0];
+    const d=document.createElement("div"); d.className="tick x mono"; d.style.left=px+"px"; d.textContent=x+"°E"; wrap.appendChild(d); }
+  for(let y=lat0;y<=lat1;y+=2){ const py=proj([b0[0],y])[1];
+    const d=document.createElement("div"); d.className="tick y mono"; d.style.top=py+"px"; d.textContent=y+"°N"; wrap.appendChild(d); }
+}
+
+/* ---------- boot ------------------------------------------------------ */
+document.getElementById("buildtag").textContent="build "+B.built;
+document.getElementById("footer").innerHTML = `
+  <span><span class="n tnum">${B.indicators.length}</span> indicators</span>
+  <span><span class="n tnum">37</span> states</span>
+  <span><span class="n tnum">774</span> LGAs</span>
+  <span class="grow"></span>
+  <span class="dim">Fay&ndash;Herriot small-area estimation &middot; ${B.survey_id.join(", ")} &middot; state figures shrunk to geography, LGA figures synthetic</span>`;
+
+renderPicker("");
+buildScale();
+new ResizeObserver(resize).observe(wrap);
+resize(); render(); paint(); legend();
+document.getElementById("boot").remove();
+})();
+</script>

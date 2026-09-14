@@ -1,0 +1,35 @@
+[project]
+name = "covariates"
+version = "0.1.0"
+description = "Àlááfìa covariate stack — LGA-level predictors for small-area estimation"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "pyarrow>=16",
+    "duckdb>=1.1",
+    "geopandas>=1.0",
+    "shapely>=2.0",
+    "httpx>=0.27",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+# Tier B (raster zonal stats). Kept optional so Tier A builds with no GDAL.
+raster = ["rasterio>=1.3", "exactextract>=0.2"]
+
+[project.scripts]
+covariates = "covariates.__main__:app"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/covariates"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

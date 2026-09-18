@@ -1,0 +1,29 @@
+[project]
+name = "surveylayer"
+version = "0.1.0"
+description = "Àlááfìa survey layer — national + subnational health indicators, keyed to the geography spine"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "pyarrow>=16",
+    "duckdb>=1.1",
+    "httpx>=0.27",
+    "rapidfuzz>=3.9",
+    "typer>=0.12",
+]
+
+[project.scripts]
+surveylayer = "surveylayer.__main__:app"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/surveylayer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

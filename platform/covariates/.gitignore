@@ -1,0 +1,10 @@
+# raster downloads — re-fetchable via `covariates worldpop fetch`
+data/raw/
+
+# local duckdb — rebuilt by `covariates build`
+data/covariates/covariates.duckdb
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

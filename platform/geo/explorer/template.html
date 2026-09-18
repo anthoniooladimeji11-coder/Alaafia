@@ -1,0 +1,877 @@
+<meta charset="utf-8">
+<title>Àlááfìa Geography Spine</title>
+<meta name="description" content="Browse every administrative unit in Nigeria — state, LGA, ward, settlement, health facility — on one P-code scheme.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ============================================================ tokens ===== */
+/* light is the base palette; dark redefines only the token values.          */
+:root{
+  color-scheme: light;
+  --ground:#F4F2EC; --surface:#FBFAF7; --sunk:#ECE9DF;
+  --ink:#1B211E; --muted:#5B6A62; --faint:#8A968E;
+  --line:#DAD5C6; --line-strong:#C3BCA8;
+  --signal:#0F9F63; --signal-ink:#0B6B44;
+  --sand:#B0761A; --sand-ink:#8A5B10;
+  --sea:#E8E5DA;
+  --c1:#DCEBE0; --c2:#A8D8BC; --c3:#6FC198; --c4:#38A672; --c5:#0F7E51;
+  --focus:#0F9F63;
+  --shadow:0 1px 2px rgba(20,26,23,.06), 0 8px 30px rgba(20,26,23,.07);
+  --pad:clamp(14px, 2.4vw, 26px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#0B0F0E; --surface:#141A18; --sunk:#0D1211;
+    --ink:#E6EDE9; --muted:#82968C; --faint:#5C6C64;
+    --line:#26302C; --line-strong:#33413B;
+    --signal:#35D08A; --signal-ink:#8FE9C0;
+    --sand:#D8A63D; --sand-ink:#E8C77E;
+    --sea:#0E1413;
+    --c1:#16241E; --c2:#1C3A2C; --c3:#2E6B4B; --c4:#3FA774; --c5:#5FDCA0;
+    --focus:#35D08A;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 40px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0B0F0E; --surface:#141A18; --sunk:#0D1211;
+  --ink:#E6EDE9; --muted:#82968C; --faint:#5C6C64;
+  --line:#26302C; --line-strong:#33413B;
+  --signal:#35D08A; --signal-ink:#8FE9C0;
+  --sand:#D8A63D; --sand-ink:#E8C77E;
+  --sea:#0E1413;
+  --c1:#16241E; --c2:#1C3A2C; --c3:#2E6B4B; --c4:#3FA774; --c5:#5FDCA0;
+  --focus:#35D08A;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 40px rgba(0,0,0,.4);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0; font-weight:600; line-height:1.15; text-wrap:balance}
+button{font:inherit; color:inherit; cursor:pointer; background:none; border:none}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px; border-radius:2px}
+.mono{font-family:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ============================================================ shell ====== */
+#app{
+  height:100%; display:grid;
+  grid-template-rows:auto minmax(0,1fr) auto;
+}
+
+header.top{
+  display:flex; align-items:baseline; gap:18px 22px; flex-wrap:wrap;
+  padding:14px var(--pad) 13px;
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+}
+.brand{display:flex; align-items:baseline; gap:10px}
+.brand .mark{
+  font-weight:700; font-size:16px; letter-spacing:.02em;
+}
+.brand .sep{color:var(--line-strong)}
+.brand .what{
+  font-size:13px; color:var(--muted);
+}
+header .tag{
+  font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); border:1px solid var(--line-strong);
+  padding:3px 8px 2px; border-radius:2px;
+}
+header .grow{flex:1}
+.themebtn{
+  font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted); border:1px solid var(--line-strong);
+  padding:5px 10px 4px; border-radius:2px;
+}
+.themebtn:hover{color:var(--ink); border-color:var(--muted)}
+
+/* ============================================================ body ====== */
+main{
+  display:grid; grid-template-columns:minmax(0,1fr) 348px;
+  min-height:0; background:var(--ground);
+}
+@media (max-width:860px){
+  main{grid-template-columns:1fr; grid-template-rows:56vh minmax(0,1fr)}
+}
+
+/* --- map ------------------------------------------------------------------ */
+.mapwrap{position:relative; min-width:0; overflow:hidden; background:var(--sea)}
+#map{position:absolute; inset:0; width:100%; height:100%; display:block}
+#pts{position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none}
+.mapframe{
+  position:absolute; inset:12px; border:1px solid var(--line-strong);
+  pointer-events:none; mix-blend-mode:normal;
+}
+.tick{
+  position:absolute; font-size:10px; letter-spacing:.06em;
+  color:var(--faint); background:var(--sea); padding:0 4px;
+}
+.tick.x{top:4px; transform:translateX(-50%)}
+.tick.y{left:4px; transform:translateY(-50%)}
+
+.mapctl{
+  position:absolute; left:20px; bottom:18px; z-index:4;
+  display:flex; flex-direction:column; gap:1px;
+  border:1px solid var(--line-strong); background:var(--surface);
+  box-shadow:var(--shadow);
+}
+.mapctl button{
+  width:34px; height:32px; font-size:15px; color:var(--muted);
+  display:grid; place-items:center;
+}
+.mapctl button+button{border-top:1px solid var(--line)}
+.mapctl button:hover{color:var(--ink); background:var(--sunk)}
+
+.legend{
+  position:absolute; right:20px; bottom:18px; z-index:4;
+  background:var(--surface); border:1px solid var(--line-strong);
+  box-shadow:var(--shadow); padding:11px 13px 12px; max-width:236px;
+}
+.legend h4{
+  font-size:10px; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--muted); font-weight:500; margin-bottom:8px;
+}
+.legend .row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:5px}
+.legend .sw{width:14px; height:14px; border:1px solid var(--line-strong); flex:none}
+.legend .ramp{display:flex; height:10px; margin:3px 0 5px}
+.legend .ramp i{flex:1}
+.legend .ends{display:flex; justify-content:space-between; font-size:10px; color:var(--faint)}
+.legend .note{font-size:11px; line-height:1.4; color:var(--faint); margin-top:8px}
+
+.modes{
+  position:absolute; left:20px; top:46px; z-index:4;
+  display:flex; flex-direction:column; gap:0;
+  background:var(--surface); border:1px solid var(--line-strong);
+  box-shadow:var(--shadow);
+}
+.modes button{
+  padding:7px 12px 6px; font-size:11px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--muted); text-align:left;
+}
+.modes button+button{border-top:1px solid var(--line)}
+.modes button[aria-pressed="true"]{color:var(--ink); background:var(--sunk); box-shadow:inset 2px 0 0 var(--signal)}
+
+.layers{
+  position:absolute; right:20px; top:46px; z-index:4;
+  background:var(--surface); border:1px solid var(--line-strong);
+  box-shadow:var(--shadow); padding:9px 12px 10px;
+}
+.layers label{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); padding:3px 0; cursor:pointer}
+.layers input{accent-color:var(--signal); margin:0}
+
+/* map svg element styling (paint via CSS custom props set in JS too) */
+#map .unit{stroke:var(--sea); stroke-width:.5; cursor:pointer; transition:fill .18s}
+#map .unit:hover{stroke:var(--ink); stroke-width:1.1}
+#map .unit.dim{opacity:.28; pointer-events:none}
+#map .unit.sel{stroke:var(--ink); stroke-width:1.3}
+#map .border{fill:none; stroke:var(--line-strong); stroke-width:.7; pointer-events:none}
+#map .border.state{stroke:var(--ink); stroke-width:.9; opacity:.5}
+#map .hatch{pointer-events:none}
+#map .glabel{
+  font-family:"JetBrains Mono", monospace;
+  fill:var(--ink); pointer-events:none; text-anchor:middle;
+  paint-order:stroke; stroke:var(--sea);
+}
+
+/* --- inspector --------------------------------------------------------- */
+.inspect{
+  border-left:1px solid var(--line); background:var(--surface);
+  display:flex; flex-direction:column; min-height:0;
+}
+@media (max-width:860px){ .inspect{border-left:none; border-top:1px solid var(--line)} }
+
+.crumbs{
+  display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+  padding:12px var(--pad) 10px; border-bottom:1px solid var(--line);
+  font-size:11px;
+}
+.crumbs button{
+  color:var(--muted); letter-spacing:.05em; text-transform:uppercase;
+  padding:2px 3px;
+}
+.crumbs button:hover{color:var(--ink)}
+.crumbs button:last-child{color:var(--ink)}
+.crumbs .car{color:var(--line-strong)}
+
+.search{padding:11px var(--pad); border-bottom:1px solid var(--line); position:relative}
+.search input{
+  width:100%; padding:8px 10px; font-size:13px;
+  background:var(--sunk); color:var(--ink);
+  border:1px solid var(--line-strong); border-radius:2px;
+}
+.search input::placeholder{color:var(--faint)}
+.results{
+  position:absolute; left:var(--pad); right:var(--pad); top:calc(100% - 4px);
+  background:var(--surface); border:1px solid var(--line-strong);
+  box-shadow:var(--shadow); z-index:9; max-height:280px; overflow:auto;
+}
+.results button{
+  display:flex; justify-content:space-between; gap:10px; width:100%;
+  padding:7px 11px; font-size:12px; text-align:left; border-bottom:1px solid var(--line);
+}
+.results button:hover{background:var(--sunk)}
+.results .lv{color:var(--faint); font-size:10px; letter-spacing:.06em; text-transform:uppercase}
+
+.detail{padding:15px var(--pad) 6px; overflow:auto; flex:1}
+.detail .lvl{
+  font-size:10px; letter-spacing:.13em; text-transform:uppercase; color:var(--signal-ink);
+  font-weight:500;
+}
+.detail h2{font-size:23px; margin:3px 0 4px; letter-spacing:-.01em}
+.detail .pcode{font-size:12px; color:var(--muted); letter-spacing:.04em}
+.detail .aka{font-size:11.5px; color:var(--faint); margin-top:3px}
+
+.facts{
+  display:grid; grid-template-columns:1fr 1fr; gap:1px;
+  margin:15px 0 4px; background:var(--line); border:1px solid var(--line);
+}
+.facts div{background:var(--surface); padding:9px 11px}
+.facts .k{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint)}
+.facts .v{font-size:17px; margin-top:2px}
+.facts .v small{font-size:11px; color:var(--muted); letter-spacing:0}
+
+.cov{margin:15px 0 6px; border:1px solid var(--line); padding:10px 12px}
+.cov .hd{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin-bottom:7px}
+.cov .bar{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:5px}
+.cov .dot{width:8px; height:8px; flex:none; border-radius:50%}
+.cov .dot.ok{background:var(--signal)}
+.cov .dot.no{background:var(--sand)}
+
+.kids{margin-top:16px}
+.kids .hd{
+  display:flex; justify-content:space-between; align-items:baseline;
+  font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint);
+  padding-bottom:6px; border-bottom:1px solid var(--line);
+}
+.kidrow{
+  display:grid; grid-template-columns:1fr auto; gap:2px 10px;
+  padding:8px 2px; border-bottom:1px solid var(--line); width:100%; text-align:left;
+  align-items:center;
+}
+.kidrow:hover{background:var(--sunk)}
+.kidrow .nm{font-size:13px}
+.kidrow .pc{font-size:10.5px; color:var(--faint); letter-spacing:.03em}
+.kidrow .bars{grid-column:1 / -1; display:flex; gap:3px; margin-top:5px; align-items:center}
+.kidrow .bseg{height:3px; background:var(--signal); opacity:.75}
+.kidrow .bseg.b2{background:var(--sand)}
+.kidrow .bnum{font-size:10px; color:var(--faint); margin-left:2px}
+
+.src{
+  padding:12px var(--pad) 6px; border-top:1px solid var(--line);
+  font-size:11px; color:var(--muted); line-height:1.5;
+}
+.src .r{margin-top:6px}
+.src a{color:var(--signal-ink)}
+.src .lic{color:var(--faint)}
+
+/* ============================================================ footer ==== */
+footer.bot{
+  display:flex; gap:8px 20px; flex-wrap:wrap; align-items:baseline;
+  padding:9px var(--pad) 10px; border-top:1px solid var(--line);
+  background:var(--surface); font-size:11px; color:var(--muted);
+}
+footer .n{color:var(--ink)}
+footer .grow{flex:1}
+footer .dim{color:var(--faint)}
+
+/* loading */
+#boot{
+  position:fixed; inset:0; display:grid; place-items:center;
+  background:var(--ground); z-index:50; color:var(--muted);
+  font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important} }
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <span class="mark">Àlááfìa</span>
+      <span class="sep">/</span>
+      <span class="what">the geography spine</span>
+    </div>
+    <span class="tag" id="buildtag">build —</span>
+    <span class="grow"></span>
+    <button class="themebtn" id="themebtn" aria-label="Switch colour theme">Theme</button>
+  </header>
+
+  <main>
+    <section class="mapwrap" id="mapwrap">
+      <svg id="map" aria-label="Map of Nigeria administrative units"></svg>
+      <canvas id="pts"></canvas>
+      <div class="mapframe"></div>
+
+      <div class="modes" role="group" aria-label="Colour the map by">
+        <button data-mode="cov" aria-pressed="true">Coverage</button>
+        <button data-mode="fac" aria-pressed="false">Facility density</button>
+        <button data-mode="set" aria-pressed="false">Settlement density</button>
+        <button data-mode="none" aria-pressed="false">Outline only</button>
+      </div>
+
+      <div class="layers" role="group" aria-label="Map layers">
+        <label><input type="checkbox" id="lyWard"> Ward points</label>
+        <label><input type="checkbox" id="lyFac" checked> Health facilities</label>
+      </div>
+
+      <div class="mapctl">
+        <button id="zin" aria-label="Zoom in">+</button>
+        <button id="zout" aria-label="Zoom out">−</button>
+        <button id="zrst" aria-label="Reset view" title="Reset">⤾</button>
+      </div>
+
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <aside class="inspect">
+      <nav class="crumbs" id="crumbs"></nav>
+      <div class="search">
+        <input id="q" type="text" placeholder="Find a state, LGA or ward…" autocomplete="off" spellcheck="false">
+        <div class="results" id="results" hidden></div>
+      </div>
+      <div class="detail" id="detail"></div>
+      <div class="src" id="src"></div>
+    </aside>
+  </main>
+
+  <footer class="bot" id="footer"></footer>
+</div>
+
+<div id="boot">building the spine…</div>
+
+<script id="bundle" type="application/json">__BUNDLE__</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+(function(){
+"use strict";
+const B = JSON.parse(document.getElementById("bundle").textContent);
+const RM = matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+/* ---------- indexes ---------------------------------------------------- */
+const stateBy = new Map(B.states.map(d=>[d.p,d]));
+const lgaBy   = new Map(B.lgas.map(d=>[d.p,d]));
+const lgasOf  = d3.group(B.lgas, d=>d.s);
+const wardsOf = d3.group(B.wards, w=>w[2]);           // w = [pcode,name,lga,lon,lat]
+const noWard  = new Set(B.no_ward_states);
+const TOT = B.totals;
+
+const searchIx = [];
+B.states.forEach(d=>searchIx.push({n:d.n,p:d.p,lv:"state"}));
+B.lgas.forEach(d=>searchIx.push({n:d.n,p:d.p,lv:"lga",par:d.s}));
+B.wards.forEach(w=>searchIx.push({n:w[1],p:w[0],lv:"ward",par:w[2]}));
+
+/* ---------- geometry ------------------------------------------------- */
+const stTopo = B.geometry.states, lgTopo = B.geometry.lgas;
+const stFC = topojson.feature(stTopo, stTopo.objects.lga_raw);
+const lgFC = topojson.feature(lgTopo, lgTopo.objects.lga_raw);
+const lgByState = d3.group(lgFC.features, f=>f.id.slice(0,5));
+const stMesh = topojson.mesh(stTopo, stTopo.objects.lga_raw, (a,b)=>a!==b);
+const stOuter = topojson.mesh(stTopo, stTopo.objects.lga_raw, (a,b)=>a===b);
+
+/* ---------- dom ----------------------------------------------------- */
+const wrap = document.getElementById("mapwrap");
+const svg  = d3.select("#map");
+const cv   = document.getElementById("pts");
+const cx   = cv.getContext("2d");
+const gRoot = svg.append("g");
+const gFill = gRoot.append("g");
+const gLine = gRoot.append("g");
+const gLab  = gRoot.append("g");
+
+const proj = d3.geoMercator();
+const path = d3.geoPath(proj);
+let W=0,H=0, DPR=Math.min(2, devicePixelRatio||1);
+const PAD=26;
+
+/* ---------- state -------------------------------------------------- */
+let mode="cov";
+let showWard=false, showFac=true;
+let sel={lv:"nation", p:"NG"};
+let zt=d3.zoomIdentity;
+let ptsXY=null;                       // {fx,fy,g,lv, wx,wy,wl} projected base coords
+
+function applyZoom(t){
+  zt = t;
+  gRoot.attr("transform", t);
+  gLine.selectAll("path").attr("stroke-width", d=>1/t.k * (d==="s"?0.9:0.7));
+  gRoot.selectAll(".unit").attr("stroke-width", function(){
+    return (this.classList.contains("sel")?1.3:0.5)/t.k;
+  });
+  gLab.selectAll("text")
+    .attr("font-size", (sel.lv==="nation"?10.5:10)/t.k)
+    .attr("stroke-width", 2.6/t.k)
+    .attr("opacity", sel.lv==="nation" ? (t.k>1.55?.92:0) : (t.k>1.9?.95:0));
+  drawPts();
+}
+const zoom = d3.zoom().scaleExtent([1,40]).on("zoom", ev=>applyZoom(ev.transform));
+svg.call(zoom).on("dblclick.zoom", null);
+
+/* Animate to a target transform without going through d3's transition
+   plumbing (which proved fragile here); keep d3.zoom's own state in sync
+   so manual wheel/drag resumes from the right place. */
+let flyRAF=0;
+function setView(T, animate){
+  cancelAnimationFrame(flyRAF);
+  svg.node().__zoom = T;                       // d3.zoom internal state
+  if(!animate || RM){ applyZoom(T); return; }
+  const s=zt, t0=performance.now(), dur=640;
+  const ease=x=> x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2;
+  (function step(now){
+    const p=Math.min(1,(now-t0)/dur), e=ease(p);
+    applyZoom(d3.zoomIdentity
+      .translate(s.x+(T.x-s.x)*e, s.y+(T.y-s.y)*e)
+      .scale(s.k+(T.k-s.k)*e));
+    if(p<1) flyRAF=requestAnimationFrame(step);
+  })(t0);
+}
+
+/* ---------- sizing ------------------------------------------------- */
+function resize(){
+  const r = wrap.getBoundingClientRect();
+  if(Math.abs(r.width-W)<1 && Math.abs(r.height-H)<1) return;
+  W=r.width; H=r.height;
+  svg.attr("viewBox",`0 0 ${W} ${H}`);
+  cv.width=W*DPR; cv.height=H*DPR; cx.setTransform(DPR,0,0,DPR,0,0);
+  proj.fitExtent([[PAD,PAD],[W-PAD,H-PAD]], stFC);
+  gFill.selectAll("path").attr("d",path);
+  gLine.selectAll("path").attr("d",path);
+  placeLabels();
+  projectPts();
+  ticks();
+  drawPts();
+}
+
+/* ---------- colour ------------------------------------------------- */
+const RAMP=["--c1","--c2","--c3","--c4","--c5"].map(v=>getCSS(v));
+function getCSS(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+let facScale, setScale;
+function buildScales(){
+  const fd=B.states.filter(s=>!noWard.has(s.n)).map(s=>s.fac/s.km2*1000);
+  const sd=B.states.map(s=>s.set/s.km2*1000);
+  facScale=d3.scaleQuantize().domain([0,d3.max(fd)]).range(RAMP);
+  setScale=d3.scaleQuantize().domain([0,d3.quantile(sd,.96)]).range(RAMP);
+}
+function fillFor(d, isLGA){
+  const rec = isLGA ? d : stateBy.get(d.id||d.p);
+  const nm  = isLGA ? lgaBy.get(d.p)?.n : rec?.n;
+  const dark = isLGA && noWard.has(stateBy.get(d.s).n);   // LGA in an uncovered state
+  if(mode==="none") return "var(--surface)";
+  if(mode==="cov"){
+    if(isLGA) return dark ? "var(--surface)" : "var(--c2)";
+    return noWard.has(rec.n) ? "var(--surface)" : "var(--c2)";
+  }
+  if(mode==="fac"){
+    if((!isLGA && noWard.has(rec.n)) || dark) return "var(--surface)";
+    return facScale(rec.fac/rec.km2*1000);
+  }
+  if(mode==="set"){
+    return setScale(rec.set/rec.km2*1000);
+  }
+  return "var(--surface)";
+}
+
+/* ---------- render admin polygons -------------------------------- */
+function render(){
+  const atNation = sel.lv==="nation";
+  const feats = atNation ? stFC.features
+        : (lgByState.get(stateSel()) || []);
+  const isLGA = !atNation;
+
+  const u = gFill.selectAll(".unit").data(feats, f=>f.id);
+  u.exit().remove();
+  u.enter().append("path").attr("class","unit")
+      .attr("d",path)
+      .on("click",(e,f)=>{ isLGA ? pick("lga",f.id) : pick("state",f.id); })
+    .merge(u)
+      .attr("d",path)
+      .attr("fill",f=> isLGA ? fillFor(lgaBy.get(f.id),true) : fillFor(f,false))
+      .classed("hatchable",f=> !isLGA && noWard.has(stateBy.get(f.id).n))
+      .classed("sel",f=> (sel.lv==="state"&&f.id===sel.p) || (sel.lv==="lga"&&f.id===sel.p))
+      .classed("dim",f=> sel.lv==="lga" && f.id!==sel.p );
+
+  gLine.selectAll("path").remove();
+  gLine.append("path").datum("s").attr("class","border state").attr("d",path(stMesh));
+  gLine.append("path").datum("o").attr("class","border").attr("d",path(stOuter));
+
+  applyHatch(feats,isLGA);
+  placeLabels();
+  drawPts();
+}
+function applyHatch(feats,isLGA){
+  gFill.selectAll(".hatch").remove();
+  if(mode!=="cov" && mode!=="fac") return;
+  if(isLGA) return;
+  const defsId="hpat";
+  if(!svg.select("#"+defsId).size()){
+    const d=svg.append("defs").attr("id",defsId);
+    const p=d.append("pattern").attr("id","hach").attr("width",6).attr("height",6)
+      .attr("patternUnits","userSpaceOnUse").attr("patternTransform","rotate(45)");
+    p.append("rect").attr("width",6).attr("height",6).attr("fill","var(--surface)");
+    p.append("line").attr("x1",0).attr("y1",0).attr("x2",0).attr("y2",6)
+      .attr("stroke","var(--sand)").attr("stroke-width",1).attr("opacity",.5);
+  }
+  feats.filter(f=>noWard.has(stateBy.get(f.id).n)).forEach(f=>{
+    gFill.append("path").attr("class","hatch").attr("d",path(f))
+      .attr("fill","url(#hach)").attr("pointer-events","none");
+  });
+}
+
+/* ---------- labels ---------------------------------------------- */
+function placeLabels(){ labelData(); }
+function labelData(){
+  let data=[];
+  if(sel.lv==="nation"){
+    data = stFC.features.map(f=>({t:stateBy.get(f.id).n.toUpperCase(), c:proj([stateBy.get(f.id).lon,stateBy.get(f.id).lat])}));
+  } else {
+    const arr = lgasOf.get(stateSel())||[];
+    data = arr.map(l=>({t:l.n, c:proj([l.lon,l.lat])}));
+  }
+  const t=gLab.selectAll("text").data(data);
+  t.exit().remove();
+  t.enter().append("text").attr("class","glabel")
+   .merge(t)
+   .attr("x",d=>d.c[0]).attr("y",d=>d.c[1])
+   .attr("font-size",(sel.lv==="nation"?10.5:10)/zt.k)
+   .attr("stroke-width",2.6/zt.k)
+   .attr("opacity", sel.lv==="nation" ? (zt.k>1.55?.92:0) : (zt.k>1.9?.95:0))
+   .text(d=>d.t);
+}
+
+/* ---------- points canvas ------------------------------------- */
+function projectPts(){
+  const F=B.facilities;
+  const fx=new Float32Array(F.lon.length), fy=new Float32Array(F.lon.length);
+  for(let i=0;i<F.lon.length;i++){const p=proj([F.lon[i],F.lat[i]]); fx[i]=p[0]; fy[i]=p[1];}
+  const wx=new Float32Array(B.wards.length), wy=new Float32Array(B.wards.length);
+  for(let i=0;i<B.wards.length;i++){const w=B.wards[i]; const p=proj([w[3],w[4]]); wx[i]=p[0]; wy[i]=p[1];}
+  ptsXY={fx,fy, wx,wy};
+}
+const GCOL={phc:"--signal", clinic:"--c4", post:"--muted", maternity:"--sand", hospital:"--sand-ink", other:"--faint"};
+function drawPts(){
+  if(!ptsXY) return;
+  cx.clearRect(0,0,W,H);
+  const F=B.facilities, codes=F.codes;
+  const k=zt.k, tx=zt.x, ty=zt.y;
+  const stSel = sel.lv!=="nation" ? stateSel() : null;
+  const lgaSel = sel.lv==="lga" ? sel.p : null;
+
+  if(showWard){
+    cx.fillStyle=cssVal("--faint");
+    for(let i=0;i<B.wards.length;i++){
+      const w=B.wards[i];
+      if(stSel && w[2].slice(0,5)!==stSel) continue;
+      if(lgaSel && w[2]!==lgaSel) continue;
+      const x=ptsXY.wx[i]*k+tx, y=ptsXY.wy[i]*k+ty;
+      if(x<-4||x>W+4||y<-4||y>H+4) continue;
+      cx.fillRect(x-1.3,y-1.3,2.6,2.6);
+    }
+  }
+  if(showFac){
+    const colCache={};
+    for(const c in GCOL) colCache[c]=cssVal(GCOL[c]);
+    const r = sel.lv==="lga" ? 2.6 : (sel.lv==="state"?1.9:1.35);
+    for(let i=0;i<F.lon.length;i++){
+      if(stSel && F.lga[i].slice(0,5)!==stSel) continue;
+      if(lgaSel && F.lga[i]!==lgaSel) continue;
+      const x=ptsXY.fx[i]*k+tx, y=ptsXY.fy[i]*k+ty;
+      if(x<-4||x>W+4||y<-4||y>H+4) continue;
+      cx.fillStyle=colCache[codes[F.g[i]]];
+      cx.globalAlpha = sel.lv==="nation"?.7:.9;
+      cx.fillRect(x-r,y-r,r*2,r*2);
+    }
+    cx.globalAlpha=1;
+  }
+}
+function cssVal(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||"#888";}
+
+/* ---------- selection / drill ------------------------------- */
+function stateSel(){ return sel.lv==="nation"?null : (sel.lv==="state"?sel.p : sel.p.slice(0,5)); }
+function pick(lv,p,noZoom){
+  if(lv==="state") sel={lv:"state",p};
+  else if(lv==="lga") sel={lv:"lga",p};
+  else if(lv==="ward") sel={lv:"lga",p:p.slice(0,8), ward:p};
+  else sel={lv:"nation",p:"NG"};
+  render(); paint(); if(!noZoom) flyTo();
+}
+function flyTo(){
+  let T = d3.zoomIdentity;
+  if(sel.lv!=="nation"){
+    const f = (sel.lv==="state" ? stFC : lgFC).features.find(x=>x.id===sel.p);
+    if(f){
+      const b=path.bounds(f), dx=Math.max(1,b[1][0]-b[0][0]), dy=Math.max(1,b[1][1]-b[0][1]);
+      const k=Math.max(1, Math.min(34, 0.82/Math.max(dx/W, dy/H)));
+      const cx=(b[0][0]+b[1][0])/2, cy=(b[0][1]+b[1][1])/2;
+      T = d3.zoomIdentity.translate(W/2 - k*cx, H/2 - k*cy).scale(k);
+    }
+  }
+  setView(T, true);
+}
+
+/* ---------- inspector paint -------------------------------- */
+const $detail=document.getElementById("detail");
+const $crumbs=document.getElementById("crumbs");
+const $src=document.getElementById("src");
+function paint(){ crumbs(); detail(); sources(); }
+
+function crumbs(){
+  const parts=[["NIGERIA",()=>pick("nation")]];
+  const ss=stateSel();
+  if(ss) parts.push([stateBy.get(ss).n.toUpperCase(), ()=>pick("state",ss)]);
+  if(sel.lv==="lga") parts.push([lgaBy.get(sel.p).n.toUpperCase(), null]);
+  $crumbs.innerHTML="";
+  parts.forEach((p,i)=>{
+    if(i) $crumbs.insertAdjacentHTML("beforeend",'<span class="car">›</span>');
+    const b=document.createElement("button"); b.textContent=p[0];
+    if(p[1]) b.onclick=p[1]; else b.disabled=true;
+    $crumbs.appendChild(b);
+  });
+}
+
+function bar(v,max,w,cls){
+  const pct=max? Math.max(2, Math.round(v/max*100)) : 0;
+  return `<span class="bseg ${cls||''}" style="width:${pct*(w||1)}%"></span>`;
+}
+function detail(){
+  if(sel.lv==="nation") return detailNation();
+  if(sel.lv==="state")  return detailState(stateBy.get(sel.p));
+  return detailLGA(lgaBy.get(sel.p));
+}
+function fnum(n){return n.toLocaleString("en-US");}
+
+function detailNation(){
+  const t=TOT;
+  $detail.innerHTML=`
+    <div class="lvl">Level 0 · National</div>
+    <h2>Nigeria</h2>
+    <div class="pcode mono">NG · Federal Republic</div>
+    <div class="facts">
+      <div><div class="k">States</div><div class="v tnum">37</div></div>
+      <div><div class="k">LGAs</div><div class="v tnum">774</div></div>
+      <div><div class="k">Wards indexed</div><div class="v tnum">${fnum(t.wards)} <small>/ ${t.ward_states} states</small></div></div>
+      <div><div class="k">Settlements</div><div class="v tnum">${fnum(t.settlements)}</div></div>
+      <div><div class="k">Health facilities</div><div class="v tnum">${fnum(t.facilities)} <small>${fnum(t.facilities_mapped)} mapped</small></div></div>
+      <div><div class="k">Facility states</div><div class="v tnum">${t.fac_states} <small>/ 37</small></div></div>
+    </div>
+    <div class="cov">
+      <div class="hd">Layer coverage</div>
+      <div class="bar"><span class="dot ok"></span> States, LGAs, settlements — all 37 states</div>
+      <div class="bar"><span class="dot no"></span> Wards &amp; facilities — 24 states. ${TOT.states-TOT.ward_states} states are LGA-level only</div>
+    </div>
+    <div class="kids">
+      <div class="hd"><span>States</span><span>wards · facilities</span></div>
+      ${statesList()}
+    </div>`;
+}
+function statesList(){
+  const mx=d3.max(B.states,d=>d.ward)||1, mf=d3.max(B.states,d=>d.fac)||1;
+  return B.states.map(s=>`
+    <button class="kidrow" data-pick="state:${s.p}">
+      <span class="nm">${s.n}</span>
+      <span class="pc mono">${s.p}</span>
+      <span class="bars">${ s.ward
+        ? `${bar(s.ward,mx)}${bar(s.fac,mf,1,'b2')}<span class="bnum mono tnum">${fnum(s.ward)} · ${fnum(s.fac)}</span>`
+        : `<span class="bnum mono" style="margin:0">LGA-level only</span>` }</span>
+    </button>`).join("");
+}
+function detailState(s){
+  const kids=(lgasOf.get(s.p)||[]).slice().sort((a,b)=>d3.ascending(a.n,b.n));
+  const mx=d3.max(kids,d=>d.ward)||1, mf=d3.max(kids,d=>d.fac)||1;
+  const covered=!noWard.has(s.n);
+  $detail.innerHTML=`
+    <div class="lvl">Level 1 · State</div>
+    <h2>${s.n}</h2>
+    <div class="pcode mono">${s.p} · ${fnum(s.km2)} km²</div>
+    <div class="facts">
+      <div><div class="k">LGAs</div><div class="v tnum">${s.lga}</div></div>
+      <div><div class="k">Wards</div><div class="v tnum">${s.ward?fnum(s.ward):'—'}</div></div>
+      <div><div class="k">Facilities</div><div class="v tnum">${s.fac?fnum(s.fac):'—'} ${s.fac?`<small>${fnum(s.facm)} mapped</small>`:''}</div></div>
+      <div><div class="k">Settlements</div><div class="v tnum">${fnum(s.set)}</div></div>
+    </div>
+    <div class="cov">
+      <div class="hd">Layer coverage</div>
+      <div class="bar"><span class="dot ok"></span> State, LGAs, settlements</div>
+      <div class="bar"><span class="dot ${covered?'ok':'no'}"></span> ${covered
+        ? 'Wards &amp; facilities — GRID3 v3.0'
+        : 'Wards &amp; facilities — <b>not in GRID3 v3.0</b>. LGA-level only.'}</div>
+    </div>
+    <div class="kids">
+      <div class="hd"><span>${s.lga} LGAs</span><span>${covered?'wards · facilities':''}</span></div>
+      ${kids.map(l=>`
+        <button class="kidrow" data-pick="lga:${l.p}">
+          <span class="nm">${l.n}</span><span class="pc mono">${l.p}</span>
+          <span class="bars">${ covered
+            ? `${bar(l.ward,mx)}${bar(l.fac,mf,1,'b2')}<span class="bnum mono tnum">${l.ward||0} · ${l.fac||0}</span>`
+            : `<span class="bnum mono" style="margin:0">${fnum(l.set)} settlements</span>` }</span>
+        </button>`).join("")}
+    </div>`;
+}
+function detailLGA(l){
+  const s=stateBy.get(l.s);
+  const wk=(wardsOf.get(l.p)||[]).slice().sort((a,b)=>d3.ascending(a[1],b[1]));
+  const covered=!noWard.has(s.n);
+  $detail.innerHTML=`
+    <div class="lvl">Level 2 · LGA</div>
+    <h2>${l.n}</h2>
+    <div class="pcode mono">${l.p} · ${s.n} · ${fnum(l.km2)} km²</div>
+    <div class="facts">
+      <div><div class="k">Wards</div><div class="v tnum">${l.ward||'—'}</div></div>
+      <div><div class="k">Facilities</div><div class="v tnum">${l.fac||'—'}</div></div>
+      <div><div class="k">Settlements</div><div class="v tnum">${fnum(l.set)}</div></div>
+      <div><div class="k">Centroid</div><div class="v mono" style="font-size:12px">${l.lat.toFixed(3)}, ${l.lon.toFixed(3)}</div></div>
+    </div>
+    ${covered && wk.length ? `
+      <div class="kids">
+        <div class="hd"><span>${wk.length} wards</span><span>GRID3 v3.0</span></div>
+        ${wk.map(w=>`<button class="kidrow" data-pick="ward:${w[0]}">
+            <span class="nm">${w[1]}</span><span class="pc mono">${w[0]}</span></button>`).join("")}
+      </div>`
+    : `<div class="cov"><div class="hd">Wards</div>
+        <div class="bar"><span class="dot no"></span> No ward layer for ${s.n} in GRID3 v3.0.
+        This LGA resolves to level 2; ward-level geography is pending a future release.</div></div>`}`;
+}
+$detail.addEventListener("click",e=>{
+  const b=e.target.closest("[data-pick]"); if(!b) return;
+  const [lv,p]=b.dataset.pick.split(":"); pick(lv,p);
+});
+
+/* ---------- sources ------------------------------------------ */
+function sources(){
+  $src.innerHTML = `<div style="color:var(--faint);letter-spacing:.08em;text-transform:uppercase;font-size:10px">Sources</div>`
+   + B.sources.map(s=>`<div class="r">${s.provider} — ${s.title.replace(/Nigeria - /,'')}<br>
+      <span class="lic mono">${s.licence}</span></div>`).join("");
+}
+
+/* ---------- legend ----------------------------------------- */
+const $legend=document.getElementById("legend");
+function legend(){
+  if(mode==="cov"){
+    $legend.innerHTML=`<h4>Ward &amp; facility coverage</h4>
+      <div class="row"><span class="sw" style="background:var(--c2)"></span> In GRID3 v3.0 — 24 states</div>
+      <div class="row"><span class="sw" style="background:repeating-linear-gradient(45deg,var(--surface),var(--surface) 3px,var(--sand) 3px,var(--sand) 4px)"></span> LGA-level only — 13 states</div>
+      <div class="note">The spine still has every LGA &amp; settlement for those 13 — just no ward or facility geometry yet.</div>`;
+  } else if(mode==="fac"){
+    $legend.innerHTML=`<h4>Facilities per 1,000 km²</h4>
+      <div class="ramp">${RAMP.map(c=>`<i style="background:${c}"></i>`).join("")}</div>
+      <div class="ends"><span>low</span><span>${Math.round(facScale.domain()[1])}</span></div>
+      <div class="note">24 states with a facility layer. Others shown hollow.</div>`;
+  } else if(mode==="set"){
+    $legend.innerHTML=`<h4>Settlements per 1,000 km²</h4>
+      <div class="ramp">${RAMP.map(c=>`<i style="background:${c}"></i>`).join("")}</div>
+      <div class="ends"><span>low</span><span>${Math.round(setScale.domain()[1])}+</span></div>
+      <div class="note">GRID3 built-up-area extents — dense cities read low (one continuous extent).</div>`;
+  } else {
+    $legend.innerHTML=`<h4>Outline only</h4><div class="note">Borders and points, no fill.</div>`;
+  }
+}
+
+/* ---------- search ----------------------------------------- */
+const $q=document.getElementById("q"), $res=document.getElementById("results");
+$q.addEventListener("input",()=>{
+  const v=$q.value.trim().toLowerCase();
+  if(v.length<2){ $res.hidden=true; return; }
+  const hits=[];
+  for(const it of searchIx){
+    if(it.n.toLowerCase().startsWith(v)){ hits.push(it); if(hits.length>40) break; }
+  }
+  if(hits.length<8){
+    for(const it of searchIx){
+      if(hits.length>40) break;
+      if(!it.n.toLowerCase().startsWith(v) && it.n.toLowerCase().includes(v)) hits.push(it);
+    }
+  }
+  hits.sort((a,b)=>({state:0,lga:1,ward:2})[a.lv]-({state:0,lga:1,ward:2})[b.lv]);
+  $res.innerHTML=hits.slice(0,12).map(h=>{
+    const par = h.lv==="lga"? stateBy.get(h.par)?.n
+             : h.lv==="ward"? lgaBy.get(h.par)?.n : "";
+    return `<button data-go="${h.lv}:${h.p}">
+      <span>${h.n}${par?` <span class="lv">· ${par}</span>`:''}</span>
+      <span class="lv">${h.lv}</span></button>`;
+  }).join("");
+  $res.hidden=false;
+});
+$res.addEventListener("click",e=>{
+  const b=e.target.closest("[data-go]"); if(!b) return;
+  const [lv,p]=b.dataset.go.split(":");
+  pick(lv==="ward"?"ward":lv, p);
+  $q.value=""; $res.hidden=true;
+});
+document.addEventListener("click",e=>{ if(!e.target.closest(".search")) $res.hidden=true; });
+
+/* ---------- controls -------------------------------------- */
+document.querySelectorAll(".modes button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    mode=btn.dataset.mode;
+    document.querySelectorAll(".modes button").forEach(b=>
+      b.setAttribute("aria-pressed", String(b.dataset.mode===mode)));
+    render(); legend();
+  });
+});
+document.getElementById("lyWard").addEventListener("change",e=>{showWard=e.target.checked; drawPts();});
+document.getElementById("lyFac").addEventListener("change",e=>{showFac=e.target.checked; drawPts();});
+function nudge(f){
+  const k=Math.max(1,Math.min(34, zt.k*f));
+  const cx=W/2, cy=H/2;
+  setView(d3.zoomIdentity.translate(cx-(cx-zt.x)/zt.k*k, cy-(cy-zt.y)/zt.k*k).scale(k), true);
+}
+document.getElementById("zin").onclick=()=>nudge(1.6);
+document.getElementById("zout").onclick=()=>nudge(1/1.6);
+document.getElementById("zrst").onclick=()=>pick("nation");
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(sel.lv==="lga") pick("state",stateSel()); else if(sel.lv==="state") pick("nation"); }});
+
+/* ---------- theme --------------------------------------- */
+const $tb=document.getElementById("themebtn");
+function sysDark(){return matchMedia("(prefers-color-scheme:dark)").matches;}
+let theme=null;
+$tb.onclick=()=>{
+  const cur = theme || (sysDark()?"dark":"light");
+  theme = cur==="dark"?"light":"dark";
+  document.documentElement.dataset.theme=theme;
+  RAMP.splice(0,5, ...["--c1","--c2","--c3","--c4","--c5"].map(getCSS));
+  buildScales(); render(); legend(); drawPts();
+};
+
+/* ---------- ticks -------------------------------------- */
+function ticks(){
+  wrap.querySelectorAll(".tick").forEach(n=>n.remove());
+  const b=[[proj.invert([PAD+12,PAD+12]),proj.invert([W-PAD-12,H-PAD-12])]][0];
+  const lon0=Math.ceil(b[0][0]), lon1=Math.floor(b[1][0]);
+  const lat1=Math.floor(b[0][1]), lat0=Math.ceil(b[1][1]);
+  for(let x=lon0;x<=lon1;x+=2){
+    const px=proj([x,b[0][1]])[0];
+    const d=document.createElement("div"); d.className="tick x mono";
+    d.style.left=px+"px"; d.textContent=x+"°E"; wrap.appendChild(d);
+  }
+  for(let y=lat0;y<=lat1;y+=2){
+    const py=proj([b[0][0],y])[1];
+    const d=document.createElement("div"); d.className="tick y mono";
+    d.style.top=py+"px"; d.textContent=y+"°N"; wrap.appendChild(d);
+  }
+}
+
+/* ---------- boot -------------------------------------- */
+document.getElementById("buildtag").textContent="build "+B.built;
+document.getElementById("footer").innerHTML=`
+  <span><span class="n tnum">37</span> states</span>
+  <span><span class="n tnum">774</span> LGAs</span>
+  <span><span class="n tnum">${fnum(TOT.wards)}</span> wards</span>
+  <span><span class="n tnum">${fnum(TOT.settlements)}</span> settlements</span>
+  <span><span class="n tnum">${fnum(TOT.facilities)}</span> facilities</span>
+  <span class="grow"></span>
+  <span class="dim">P-code scheme: NG · NG0NN · NG0NN0NN · +ward +settlement · decode by length</span>`;
+
+buildScales();
+new ResizeObserver(resize).observe(wrap);
+resize(); render(); paint(); legend();
+document.getElementById("boot").remove();
+})();
+</script>

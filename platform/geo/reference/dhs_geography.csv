@@ -1,0 +1,38 @@
+dhs_sstate_code,dhs_state_name,dhs_zone_code,dhs_zone_abbr,dhs_zone_name
+1,Sokoto,3,NW,North West
+2,Zamfara,3,NW,North West
+3,Katsina,3,NW,North West
+4,Jigawa,3,NW,North West
+5,Yobe,2,NE,North East
+6,Borno,2,NE,North East
+7,Adamawa,2,NE,North East
+8,Gombe,2,NE,North East
+9,Bauchi,2,NE,North East
+10,Kano,3,NW,North West
+11,Kaduna,3,NW,North West
+12,Kebbi,3,NW,North West
+13,Niger,1,NC,North Central
+14,FCT Abuja,1,NC,North Central
+15,Nasarawa,1,NC,North Central
+16,Plateau,1,NC,North Central
+17,Taraba,2,NE,North East
+18,Benue,1,NC,North Central
+19,Kogi,1,NC,North Central
+20,Kwara,1,NC,North Central
+21,Oyo,6,SW,South West
+22,Osun,6,SW,South West
+23,Ekiti,6,SW,South West
+24,Ondo,6,SW,South West
+25,Edo,5,SS,South South
+26,Anambra,4,SE,South East
+27,Enugu,4,SE,South East
+28,Ebonyi,4,SE,South East
+29,Cross River,5,SS,South South
+30,Akwa Ibom,5,SS,South South
+31,Abia,4,SE,South East
+32,Imo,4,SE,South East
+33,Rivers,5,SS,South South
+34,Bayelsa,5,SS,South South
+35,Delta,5,SS,South South
+36,Lagos,6,SW,South West
+37,Ogun,6,SW,South West

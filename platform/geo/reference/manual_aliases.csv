@@ -1,0 +1,8 @@
+level,state_name,canonical_name,alias,note
+2,Ogun,Egbado North,Yewa North,Egbado North renamed Yewa North (2018); GRID3 uses the new name
+2,Ogun,Egbado South,Yewa South,Egbado South renamed Yewa South (2018); GRID3 uses the new name
+2,Kaduna,Markafi,Makarfi,OCHA COD transposes letters; Makarfi is the common spelling
+2,Abia,Obi Ngwa,Obi Nwga,GRID3 v3.0 misspelling of Obi Ngwa
+2,Oyo,Atigbo,Atisbo,Atisbo / Atigbo spelling variant of the same Oyo LGA
+2,Kaduna,Zango-Kataf,Zangon Kataf,Zango-Kataf / Zangon Kataf spelling variant of the same Kaduna LGA
+

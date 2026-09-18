@@ -1,0 +1,38 @@
+// Àlááfìà API — Prisma schema
+//
+// This service currently shares Ìyàwó's Postgres database. The `alaafia_access`
+// table is OWNED by the Ìyàwó repo, which manages its migration history and
+// runs `prisma migrate deploy` on every deploy. This schema exists here only so
+// `prisma generate` can produce a typed client for the two Àlááfìà routes.
+//
+//   DO NOT run `prisma migrate` from this repo.
+//   Run `npx prisma generate` only.
+//
+// When Àlááfìà moves to its own database, copy the migration
+// (20260507113051_add_alaafia_access + 20260607000000_add_api_key from Ìyàwó)
+// into a prisma/migrations/ dir here and take ownership.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AlaafiaAccess {
+  id           String    @id @default(cuid())
+  name         String
+  organisation String
+  role         String
+  email        String
+  useCase      String?
+  status       String    @default("pending")
+  apiKey       String?   @unique
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("alaafia_access")
+}

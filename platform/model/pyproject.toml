@@ -1,0 +1,29 @@
+[project]
+name = "sae"
+version = "0.1.0"
+description = "Àlááfìa small-area estimation — area-level Fay–Herriot, state -> LGA"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scipy>=1.13",
+    "pyarrow>=16",
+    "duckdb>=1.1",
+    "typer>=0.12",
+]
+
+[project.scripts]
+sae = "sae.__main__:app"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sae"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

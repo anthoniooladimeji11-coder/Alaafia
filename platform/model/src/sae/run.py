@@ -18,11 +18,12 @@ def run_one(slug: str, survey_id: str) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def eligible_indicators() -> pd.DataFrame:
-    """Indicators this model can honestly touch: percentages/prevalences only —
-    mortality rates need a different (Poisson/person-years) variance model,
-    tracked as a follow-up, not silently misapplied here."""
+    """Indicators this model can honestly touch: percentages, prevalences,
+    and per-1,000 rates (mortality) — every unit `fayherriot.sampling_variance`
+    and `disaggregate._link_pair` know how to handle. Anything else is left
+    out on purpose rather than silently misapplied."""
     series = pd.read_parquet(SURVEY_SERIES)
-    return series[series.unit.isin(["pct", "prev_pct"])]
+    return series[series.unit.isin(["pct", "prev_pct", "rate_1000"])]
 
 
 def run_all(survey_id: str, *, slugs: list[str] | None = None) -> dict:

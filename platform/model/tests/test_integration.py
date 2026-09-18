@@ -48,8 +48,10 @@ def test_fit_and_estimate_real_indicator():
     from sae.fayherriot import estimate
     fit_ = _first_fittable()
     out = estimate(fit_)
+    hi = 100 if fit_.unit in ("pct", "prev_pct") else None
     assert fit_.n_states >= 20
-    assert out.fh_estimate.between(0, 100).all()
+    assert out.fh_estimate.ge(0).all()
+    assert hi is None or out.fh_estimate.le(hi).all()
     assert out.fh_se.gt(0).all()
     assert set(out.state_pcode) == set(fit_.states.state_pcode)
 
@@ -60,7 +62,9 @@ def test_disaggregate_reconciles_to_state():
     state_df = estimate(fit_)
     lga_df = disaggregate(fit_, state_df)
 
-    assert lga_df.estimate.between(0, 100).all()
+    hi = 100 if fit_.unit in ("pct", "prev_pct") else None
+    assert lga_df.estimate.ge(0).all()
+    assert hi is None or lga_df.estimate.le(hi).all()
     assert lga_df.lga_pcode.nunique() >= 700            # covariate coverage gaps aside
 
     cov = pd.read_parquet(COV_LGA, columns=["lga_pcode", "pop_2020"])
@@ -72,3 +76,32 @@ def test_disaggregate_reconciles_to_state():
     # logit-scale benchmarking (disaggregate.py) makes this exact, not just close —
     # if this drifts, clipping likely crept back into the calibration path.
     assert (recon - check).abs().max() < 0.01
+
+
+def test_mortality_rate_end_to_end():
+    """The rate_1000 path specifically — not just whichever unit _first_fittable
+    happens to pick. DHS publishes a CI on every mortality cell (unlike most
+    pct indicators), so this exercises the api_ci branch at full state coverage."""
+    from sae.fayherriot import estimate
+    df = pd.read_parquet(SURVEY)
+    m = df[(df.slug == "under5_mortality") & (df.geo_level == "state")]
+    if m.empty:
+        pytest.skip("under5_mortality not in the built survey layer")
+    survey_id = m.survey_id.value_counts().idxmax()
+    fit_ = fit("under5_mortality", survey_id)
+    assert fit_.unit == "rate_1000"
+    assert (fit_.states.psi_method == "api_ci").all()          # DHS CI coverage is 100% here
+
+    state_df = estimate(fit_)
+    assert state_df.fh_estimate.ge(0).all()
+    assert state_df.fh_estimate.max() > 100                    # real under-5 rates do exceed 100/1,000
+
+    lga_df = disaggregate(fit_, state_df)
+    assert (lga_df.estimate >= 0).all()
+    cov = pd.read_parquet(COV_LGA, columns=["lga_pcode", "pop_2020"])
+    m2 = lga_df.merge(cov, on="lga_pcode")
+    recon = (m2.assign(w=m2.pop_2020.fillna(1.0))
+               .groupby("state_pcode")
+               .apply(lambda g: np.average(g.estimate, weights=g.w), include_groups=False))
+    target = state_df.set_index("state_pcode").fh_estimate.reindex(recon.index)
+    assert (recon - target).abs().max() < 0.01

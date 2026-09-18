@@ -14,7 +14,7 @@ app = typer.Typer(add_completion=False, help="Àlááfìa small-area estimation"
 
 @app.command()
 def ready():
-    """Indicators this model can fit (percentage/prevalence unit)."""
+    """Indicators this model can fit (percentage, prevalence, or per-1,000 rate)."""
     for _, r in eligible_indicators().iterrows():
         typer.echo(f"  {r.slug:<22} {r.domain:<14} rounds {r.first_year}-{r.last_year}"
                    f"  n_state_obs(any round)={r.n_state_obs}")
@@ -54,10 +54,16 @@ def check():
         raise typer.Exit(1)
     st, lga = pd.read_parquet(FH_STATE_PARQUET), pd.read_parquet(SAE_LGA_PARQUET)
     bad, notes = [], []
-    if not st.fh_estimate.between(0, 100).all():
-        bad.append("fh_estimate outside [0,100]")
-    if not lga.estimate.between(0, 100).all():
-        bad.append("lga estimate outside [0,100]")
+    # pct/prev_pct are bounded both sides; rate_1000 only below, at 0 — a
+    # mortality rate legitimately running into the hundreds isn't a bug.
+    pct = st.unit.isin(["pct", "prev_pct"])
+    if not st.fh_estimate.ge(0).all() or not st.loc[pct, "fh_estimate"].le(100).all():
+        bad.append("fh_estimate outside its natural range")
+    pct_l = lga.unit.isin(["pct", "prev_pct"])
+    if not lga.estimate.ge(0).all() or not lga.loc[pct_l, "estimate"].le(100).all():
+        bad.append("lga estimate outside its natural range")
+    if not st.loc[~pct, "fh_estimate"].le(500).all():
+        bad.append("a rate_1000 estimate exceeds 500/1,000 — check for a fit blow-up")
     if (st.fh_se <= 0).any():
         bad.append("non-positive fh_se")
 

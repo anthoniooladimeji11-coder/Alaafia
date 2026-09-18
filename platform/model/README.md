@@ -22,10 +22,14 @@ three-term approximation (Rao & Molina, *Small Area Estimation*, 2nd ed.
 2015, §6.2/§7.1).
 
 **Stage 2 — synthetic regression to LGA**: the same β applied to each
-LGA's own covariates, then benchmarked (additive shift) so the
-population-weighted mean of a state's LGAs equals that state's Stage-1
-number. The state figure stays authoritative; covariates only
-redistribute it within the state.
+LGA's own covariates, then benchmarked so the population-weighted mean
+of a state's LGAs equals that state's Stage-1 number. The state figure
+stays authoritative; covariates only redistribute it within the state.
+The benchmarking shift is solved on a link scale chosen by the
+indicator's unit — logit for a percentage/prevalence, log for a
+per-1,000 rate (`disaggregate._link_pair`) — never added to the raw
+value, so no LGA can be calibrated past its natural range (see
+"Verifying it" below for why that matters).
 
 ## What this is not
 
@@ -37,14 +41,20 @@ redistribute it within the state.
   with a real unit-level model (area random effects at ward/LGA,
   fit on the actual clusters) — same output shape, better numbers.
 - **Not a design-based sampling error**, where the DHS API doesn't
-  publish a CI (~87% of cells). `ψ_i` falls back to
-  `DEFF · p(1-p)/n` with a fixed `DEFAULT_DEFF = 2.0` — a documented,
-  literature-typical approximation (see `config.py`), not the survey's
-  actual Taylor-linearised SE. Replace once microdata gives real SEs.
-- **Percentage/prevalence indicators only.** Mortality rates
-  (`unit == "rate_1000"`) need a Poisson/person-years variance model,
-  not the binomial one used here — `run.eligible_indicators()` excludes
-  them on purpose rather than silently misapplying this model.
+  publish a CI. `ψ_i` then falls back to an approximation with a fixed
+  `DEFAULT_DEFF = 2.0` (see `config.py`) — binomial for a
+  percentage/prevalence, Poisson (on implied deaths) for a per-1,000
+  rate — not the survey's actual Taylor-linearised SE. In practice this
+  matters mostly for the percentage indicators: the DHS API publishes a
+  real CI for every mortality-rate cell (100% coverage, vs. ~13% for
+  most percentages), so mortality mostly skips the approximation
+  entirely — check `psi_method` per row rather than assume. Replace
+  the approximation once microdata gives real SEs everywhere.
+- **Percentage, prevalence, and per-1,000-rate indicators** — every
+  unit `fayherriot.sampling_variance` and `disaggregate._link_pair`
+  know how to handle (`run.eligible_indicators()`). A unit outside
+  that set is left out on purpose rather than silently misapplying
+  the binomial/logit machinery to it.
 
 ## Run it
 
@@ -76,9 +86,11 @@ real bugs only showed up this way and are worth knowing about:
   added the benchmarking shift on the raw percentage scale, then
   clipped to [0,100] — for a state with an already-high or -low figure,
   clipping the LGAs that got pushed past the edge silently changed the
-  weighted mean without changing the target. Fixed by calibrating on
-  the logit scale instead (`disaggregate.py`), which can't leave
-  (0,100) by construction, so nothing is ever clipped.
+  weighted mean without changing the target. Fixed by calibrating on a
+  link scale instead (`disaggregate._link_pair` — logit for a bounded
+  percentage, log for an unbounded-below rate), which can't leave the
+  indicator's natural range by construction, so nothing is ever
+  clipped.
 - **A merge-then-index misalignment.** Population weights were computed
   before a `pandas.merge` that resets row order, then indexed into with
   positions computed *after* it — correct for any state the merge

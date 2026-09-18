@@ -33,7 +33,7 @@ def test_reml_recovers_beta_and_variance_in_the_right_ballpark():
     assert beta[1] == pytest.approx(6.0, abs=1.0)
 
 
-def _fit_result(X, y, psi, sigma_u2, beta) -> FHFit:
+def _fit_result(X, y, psi, sigma_u2, beta, unit="pct") -> FHFit:
     cols = ["x1"]
     d = pd.DataFrame({
         "state_pcode": [f"S{i}" for i in range(len(y))],
@@ -41,7 +41,7 @@ def _fit_result(X, y, psi, sigma_u2, beta) -> FHFit:
         "y": y, "psi": psi, "psi_method": "sim", "denom_unweighted": 500,
         "x1": X[:, 1],
     })
-    return FHFit(slug="sim", survey_id="SIM", cols=cols, beta=beta, sigma_u2=sigma_u2,
+    return FHFit(slug="sim", survey_id="SIM", unit=unit, cols=cols, beta=beta, sigma_u2=sigma_u2,
                 col_mean=d[cols].mean(), col_std=pd.Series([1.0], index=cols),
                 n_states=len(d), var_sigma_u2=0.5, states=d)
 
@@ -71,3 +71,15 @@ def test_extreme_psi_limits():
     huge = _fit_result(X, y, np.array([1e8, 1e8, 1e8]), sigma_u2=4.0, beta=beta)
     assert estimate(tiny).fh_estimate.to_numpy() == pytest.approx(y, abs=1e-3)
     assert estimate(huge).fh_estimate.to_numpy() == pytest.approx(X @ beta, abs=1e-3)
+
+
+def test_rate_1000_is_not_clipped_to_100():
+    """A mortality-style rate can exceed 100 — only pct/prev_pct get the upper clip."""
+    X = np.column_stack([np.ones(3), [0.0, 1.0, -1.0]])
+    y = np.array([180.0, 220.0, 140.0])          # plausible under-5 mortality, per 1,000
+    beta = np.array([180.0, 40.0])
+    fit_ = _fit_result(X, y, np.array([25.0, 25.0, 25.0]), sigma_u2=100.0, beta=beta, unit="rate_1000")
+    out = estimate(fit_)
+    assert (out.fh_estimate > 100).any()
+    assert (out.fh_ci_high > 100).any()
+    assert out.fh_estimate.ge(0).all()

@@ -27,15 +27,36 @@ from .config import COV_LGA, DEFAULT_DEFF, MIN_STATES_TO_FIT, STATE_COVARIATES, 
 
 # ------------------------------------------------------------ direct estimates --
 def sampling_variance(value: float, ci_low: float | None, ci_high: float | None,
-                      denom: float | None, *, deff: float = DEFAULT_DEFF) -> tuple[float, str]:
-    """psi for one cell, in the same units as `value` (0-100 scale). Returns (psi, method)."""
+                      denom: float | None, unit: str = "pct",
+                      *, deff: float = DEFAULT_DEFF) -> tuple[float, str]:
+    """psi for one cell, in the same natural units as `value`
+    (0-100 for pct/prev_pct, deaths-per-1,000 for rate_1000).
+    Returns (psi, method).
+
+    The API's own CI is unit-agnostic (just a width -> variance
+    conversion) and is used whenever published. The denominator
+    fallback is not: it approximates a *binomial* proportion's
+    variance, which only makes sense for pct/prev_pct — applying it to
+    a mortality rate would silently treat "132 deaths per 1,000" as a
+    132% probability. An unrecognised unit returns "unavailable"
+    rather than guess.
+    """
     if ci_low is not None and ci_high is not None and not (pd.isna(ci_low) or pd.isna(ci_high)):
         se = (ci_high - ci_low) / (2 * 1.96)
         return max(se, 1e-6) ** 2, "api_ci"
     if denom is not None and not pd.isna(denom) and denom > 0:
-        p = np.clip(value / 100.0, 0.01, 0.99)
-        var_p = deff * p * (1 - p) / denom
-        return max(var_p * 100.0 ** 2, 1e-6), "deff_approx"
+        if unit in ("pct", "prev_pct"):
+            p = np.clip(value / 100.0, 0.01, 0.99)
+            var_p = deff * p * (1 - p) / denom
+            return max(var_p * 100.0 ** 2, 1e-6), "deff_approx"
+        if unit == "rate_1000":
+            # Poisson approximation: Var(deaths) ~ deaths, propagated to the
+            # per-1,000 rate, with the same DEFF used for proportions as a
+            # documented stand-in for the real design effect on a rate.
+            deaths = max(value, 0.0) * denom / 1000.0
+            var_rate = deff * deaths * (1000.0 / denom) ** 2
+            return max(var_rate, 1e-6), "deff_approx"
+        return np.nan, "unavailable"
     return np.nan, "unavailable"
 
 
@@ -45,7 +66,7 @@ def direct_estimates(slug: str, survey_id: str) -> pd.DataFrame:
     d = df[(df.slug == slug) & (df.survey_id == survey_id) & (df.geo_level == "state")
           & df.geo_pcode.notna()].copy()
     psi_method = d.apply(lambda r: sampling_variance(r.value, r.ci_low, r.ci_high,
-                                                      r.denom_unweighted), axis=1)
+                                                      r.denom_unweighted, r.unit), axis=1)
     d["psi"] = [p for p, _ in psi_method]
     d["psi_method"] = [m for _, m in psi_method]
     return d[["geo_pcode", "geo_name", "value", "psi", "psi_method",
@@ -72,6 +93,7 @@ def state_covariate_matrix(cols: list[str] = STATE_COVARIATES) -> pd.DataFrame:
 class FHFit:
     slug: str
     survey_id: str
+    unit: str
     cols: list[str]
     beta: np.ndarray
     sigma_u2: float
@@ -125,8 +147,8 @@ def fit(slug: str, survey_id: str, cols: list[str] = STATE_COVARIATES) -> FHFit:
     var_sigma_u2 = 2.0 / float(np.sum(Vinv ** 2))          # REML asymptotic variance
 
     d = d.assign(_row=range(len(d)))
-    return FHFit(slug=slug, survey_id=survey_id, cols=cols, beta=beta, sigma_u2=sigma_u2,
-                col_mean=col_mean, col_std=col_std, n_states=len(d),
+    return FHFit(slug=slug, survey_id=survey_id, unit=d.unit.iloc[0], cols=cols, beta=beta,
+                sigma_u2=sigma_u2, col_mean=col_mean, col_std=col_std, n_states=len(d),
                 var_sigma_u2=var_sigma_u2, states=d)
 
 
@@ -150,12 +172,19 @@ def estimate(fit_: FHFit) -> pd.DataFrame:
     mse = np.clip(g1 + g2 + g3, 1e-9, None)
     se = np.sqrt(mse)
 
+    # A percentage/prevalence is bounded on both sides; a per-1,000 rate
+    # only below, at 0 — deaths can't be negative, but a rate in the
+    # hundreds is a real (if grim) possibility, not a bug to clip away.
+    # np.clip (not pandas .clip) on purpose: these are plain ndarrays and
+    # assigning a bare array avoids any index-alignment surprise against
+    # `out`'s own index.
+    hi_bound = 100.0 if fit_.unit in ("pct", "prev_pct") else None
     out = d[["state_pcode", "state_name", "y", "psi", "psi_method", "denom_unweighted"]].copy()
     out["synthetic"] = synthetic
     out["gamma"] = gamma
-    out["fh_estimate"] = np.clip(fh, 0, 100)
+    out["fh_estimate"] = np.clip(fh, 0, hi_bound)
     out["fh_se"] = se
-    out["fh_ci_low"] = np.clip(fh - 1.96 * se, 0, 100)
-    out["fh_ci_high"] = np.clip(fh + 1.96 * se, 0, 100)
-    out["slug"], out["survey_id"] = fit_.slug, fit_.survey_id
+    out["fh_ci_low"] = np.clip(fh - 1.96 * se, 0, hi_bound)
+    out["fh_ci_high"] = np.clip(fh + 1.96 * se, 0, hi_bound)
+    out["slug"], out["survey_id"], out["unit"] = fit_.slug, fit_.survey_id, fit_.unit
     return out.rename(columns={"y": "direct"})

@@ -6,7 +6,10 @@ import duckdb
 import pandas as pd
 
 from . import fayherriot as fh
-from .config import DUCKDB, FH_STATE_PARQUET, SAE_LGA_PARQUET, SURVEY_SERIES
+from .config import (
+    DUCKDB, FH_STATE_PARQUET, INDICATOR_META_PARQUET, SAE_LGA_PARQUET, SURVEY_SERIES,
+)
+from .direction import classify
 from .disaggregate import disaggregate
 
 
@@ -53,6 +56,18 @@ def run_all(survey_id: str, *, slugs: list[str] | None = None) -> dict:
         con.execute(f"CREATE OR REPLACE VIEW fh_state AS SELECT * FROM read_parquet('{FH_STATE_PARQUET}')")
         con.execute(f"CREATE OR REPLACE VIEW sae_lga AS SELECT * FROM read_parquet('{SAE_LGA_PARQUET}')")
         con.close()
+
+        # one row per indicator ever built (across all persisted survey rounds),
+        # the shared "does high mean good or bad" answer for every downstream
+        # consumer (the explorer, the brief generator) to read rather than guess.
+        built = pd.read_parquet(FH_STATE_PARQUET, columns=["slug"]).slug.unique()
+        series = pd.read_parquet(SURVEY_SERIES)
+        meta = series[series.slug.isin(built)].copy()
+        worse_high = classify(set(meta.slug))
+        meta["worse_high"] = meta.slug.map(worse_high)
+        meta[["slug", "domain", "unit", "indicator_label", "worse_high",
+             "n_surveys", "first_year", "last_year"]].to_parquet(
+            INDICATOR_META_PARQUET, index=False)
 
     return {"survey_id": survey_id, "fit": ok, "skipped": failed,
             "state_rows": len(fh_state), "lga_rows": len(sae_lga)}

@@ -22,23 +22,11 @@ SHP_ZIP = GEO / "data" / "raw" / "ocha_cod" / "nga_admin_boundaries.shp.zip"
 OUT = Path(__file__).resolve().parent / "build"
 OUT.mkdir(exist_ok=True)
 
-# Whether a HIGHER value means a WORSE outcome — drives the colour ramp
-# direction and the "higher/lower is better" language in the UI. Every
-# indicator this explorer ships must be classified in exactly one of
-# these two sets; build() asserts that rather than silently defaulting
-# an unclassified one to "higher is better" and mis-colouring it.
-WORSE_WHEN_HIGH = {
-    "child_stunting", "child_underweight", "child_wasting", "child_anaemia_any",
-    "women_anaemia_any", "women_thin_bmi", "zero_dose", "unmet_need_fp",
-    "open_defecation", "malaria_rdt_prev",
-    "infant_mortality", "neonatal_mortality", "under5_mortality",
-}
-BETTER_WHEN_HIGH = {
-    "diarrhoea_ors_rhf", "fully_vaccinated", "measles1", "pentavalent3",
-    "excl_breastfeeding", "women_literate", "mcpr_all_women",
-    "household_electricity", "fever_care_sought", "iptp3", "itn_access",
-    "anc4", "improved_water", "improved_sanitation",
-}
+# "does high mean good or bad" is decided once, by the model package
+# itself (sae/direction.py), and written to indicator_meta.parquet by
+# `sae build` — read it from there rather than keeping a second,
+# driftable copy of the classification here.
+INDICATOR_META = MODEL / "data" / "model" / "indicator_meta.parquet"
 
 
 def _mapshaper(args: list[str]) -> None:
@@ -60,21 +48,15 @@ def build_geometry() -> None:
 
 
 def build() -> dict:
-    series = pd.read_parquet(MODEL.parent / "survey" / "data" / "survey" / "survey_series.parquet")
+    if not INDICATOR_META.exists():
+        raise SystemExit(f"missing {INDICATOR_META} — run `sae build --survey ...` first "
+                         f"(platform/model), which now writes this alongside fh_state.parquet")
+    ind = pd.read_parquet(INDICATOR_META)
     fh = pd.read_parquet(MODEL / "data" / "model" / "fh_state.parquet")
     lga_est = pd.read_parquet(MODEL / "data" / "model" / "sae_lga.parquet")
     unit = pd.read_parquet(GEO / "data" / "spine" / "geo_unit.parquet")
 
     built_slugs = set(fh.slug.unique())
-    unclassified = built_slugs - WORSE_WHEN_HIGH - BETTER_WHEN_HIGH
-    both = built_slugs & WORSE_WHEN_HIGH & BETTER_WHEN_HIGH
-    if unclassified or both:
-        raise SystemExit(f"fix WORSE_WHEN_HIGH/BETTER_WHEN_HIGH: "
-                         f"unclassified={unclassified} in_both={both}")
-
-    ind = series[series.slug.isin(built_slugs)].copy()
-    ind["worse_high"] = ind.slug.isin(WORSE_WHEN_HIGH)
-
     indicators = [
         {"slug": r.slug, "domain": r.domain, "unit": r.unit, "label": r.indicator_label,
          "worse_high": bool(r.worse_high), "n_surveys": int(r.n_surveys),

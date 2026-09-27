@@ -18,6 +18,7 @@ GEO_UNIT = ROOT.parent / "geo" / "data" / "spine" / "geo_unit.parquet"
 
 FH_STATE_PARQUET = OUT / "fh_state.parquet"          # all fitted indicators, long
 SAE_LGA_PARQUET = OUT / "sae_lga.parquet"
+INDICATOR_META_PARQUET = OUT / "indicator_meta.parquet"   # slug, domain, unit, label, worse_high
 DUCKDB = OUT / "model.duckdb"
 
 # Covariates carried into the state-level regression, and later applied

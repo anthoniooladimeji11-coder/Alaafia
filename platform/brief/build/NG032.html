@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plateau Health Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#F7F5F0; --surface:#FFFFFF; --sunk:#EFEBE1;
+  --ink:#201C16; --muted:#5B564C; --faint:#8C8778;
+  --line:#DDD6C4; --line-strong:#C7BEA4;
+  --accent:#2B6E5C; --accent-ink:#1E4D40;
+  --good:#2B6E5C; --bad:#A2432B;
+  --shadow:0 1px 2px rgba(32,28,22,.05), 0 10px 30px rgba(32,28,22,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#17140F; --surface:#1E1A14; --sunk:#141110;
+    --ink:#EDE8DC; --muted:#A8A192; --faint:#736C5C;
+    --line:#332D22; --line-strong:#453E2E;
+    --accent:#5FBFA1; --accent-ink:#8FDCC3;
+    --good:#5FBFA1; --bad:#E08D71;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#17140F; --surface:#1E1A14; --sunk:#141110;
+  --ink:#EDE8DC; --muted:#A8A192; --faint:#736C5C;
+  --line:#332D22; --line-strong:#453E2E;
+  --accent:#5FBFA1; --accent-ink:#8FDCC3;
+  --good:#5FBFA1; --bad:#E08D71;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Inter",ui-sans-serif,system-ui,sans-serif; font-size:15.5px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;}
+.serif{font-family:"Source Serif 4",Georgia,serif}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.tnum{font-variant-numeric:tabular-nums}
+.page{max-width:920px; margin:0 auto; padding:56px 28px 80px}
+
+.masthead{display:flex; justify-content:space-between; align-items:baseline;
+  border-bottom:2px solid var(--ink); padding-bottom:14px; margin-bottom:36px}
+.masthead .mark{font-weight:700; font-size:15px; letter-spacing:.22em}
+.masthead .lbl{font-family:"JetBrains Mono"; font-size:11.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--muted)}
+
+.title h1{font-size:44px; margin:0 0 6px; font-weight:600; letter-spacing:-.01em}
+.title .meta{font-family:"JetBrains Mono"; font-size:13px; color:var(--muted); letter-spacing:.01em}
+.title .meta b{color:var(--ink); font-weight:500}
+.title{margin-bottom:34px}
+
+.headline{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1px;
+  background:var(--line); border:1px solid var(--line); margin-bottom:44px}
+.card{background:var(--surface); padding:16px 18px; border-top:3px solid var(--line-strong)}
+.card.concern{border-top-color:var(--bad)}
+.card.strength{border-top-color:var(--good)}
+.card .k{font-family:"JetBrains Mono"; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+.card .v{font-weight:600; font-size:16px; margin:4px 0 6px}
+.card .t{font-size:13px; color:var(--muted); line-height:1.5}
+
+.domain{margin-bottom:38px}
+.domain h2{font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-ink);
+  font-weight:600; margin:0 0 10px; padding-bottom:8px; border-bottom:1px solid var(--line)}
+.twrap{overflow-x:auto}
+table{width:100%; border-collapse:collapse; font-size:13.5px}
+th{text-align:left; font-family:"JetBrains Mono"; font-size:10.5px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--faint); font-weight:500; padding:6px 10px; white-space:nowrap}
+th:not(:first-child), td:not(:first-child){text-align:right}
+td{padding:9px 10px; border-top:1px solid var(--line); white-space:nowrap}
+td.ind{white-space:normal; font-weight:500}
+td.ci, td.src{color:var(--faint); font-size:12px}
+td.natl{color:var(--muted)}
+td.delta.good{color:var(--good)}
+td.delta.bad{color:var(--bad)}
+tr:hover td{background:var(--sunk)}
+
+.methods{margin-top:54px; padding-top:22px; border-top:2px solid var(--ink)}
+.methods h3{font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0 0 10px}
+.methods p{font-size:13px; color:var(--muted); max-width:760px; margin:0 0 10px}
+.methods .s{font-size:12.5px; color:var(--muted); margin-top:8px}
+.methods .s .mono{color:var(--faint); font-size:11.5px}
+
+@media print{
+  body{background:#fff}
+  .page{max-width:none; padding:0 8mm}
+  .card, table{box-shadow:none}
+}
+</style>
+</head><body>
+<div class="page">
+  <div class="masthead">
+    <span class="mark">ÀLÁÁFÌA</span>
+    <span class="lbl">State health profile · NG2024DHS · built 2026-09-18</span>
+  </div>
+
+  <div class="title">
+    <h1 class="serif">Plateau</h1>
+    <div class="meta">
+      <span class="mono">NG032</span> ·
+      population <b>4.5M</b> (WorldPop 2020) ·
+      area <b>26,507 km²</b> ·
+      25 indicators modelled
+    </div>
+  </div>
+
+  <div class="headline">
+    <div class="card concern">
+      <div class="k">Water &amp; sanitation</div>
+      <div class="v">Population using open defecation</div>
+      <div class="t">60.0%, 40.1 pts worse than the national 19.9%, 35th of 37 states.</div>
+    </div>
+    <div class="card concern">
+      <div class="k">Living standards</div>
+      <div class="v">Households with electricity</div>
+      <div class="t">27.3%, 27.9 pts worse than the national 55.2%, 32nd of 37 states.</div>
+    </div>
+    <div class="card concern">
+      <div class="k">Water &amp; sanitation</div>
+      <div class="v">Population with an improved sanitation facility</div>
+      <div class="t">37.3%, 27.6 pts worse than the national 64.9%, 34th of 37 states.</div>
+    </div>
+    <div class="card strength">
+      <div class="k">Anaemia</div>
+      <div class="v">Women with any anemia</div>
+      <div class="t">24.9%, 16.7 pts better than the national 41.6%, 2nd of 37 states.</div>
+    </div>
+    <div class="card strength">
+      <div class="k">Child mortality</div>
+      <div class="v">Under-five mortality rate</div>
+      <div class="t">96.8, 13.2 pts better than the national 110.0, 24th of 37 states.</div>
+    </div>
+    <div class="card strength">
+      <div class="k">Child mortality</div>
+      <div class="v">Neonatal mortality rate</div>
+      <div class="t">31.3, 9.7 pts better than the national 41.0, 20th of 37 states.</div>
+    </div></div>
+
+  
+  <section class="domain">
+    <h2>Anaemia</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Children with any anemia</td>
+      <td class="tnum val">53.7%</td>
+      <td class="tnum ci">45.8–61.6</td>
+      <td class="tnum natl">57.7%</td>
+      <td class="tnum delta good">-4.0</td>
+      <td class="tnum rank">12th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Women with any anemia</td>
+      <td class="tnum val">24.9%</td>
+      <td class="tnum ci">19.6–30.2</td>
+      <td class="tnum natl">41.6%</td>
+      <td class="tnum delta good">-16.7</td>
+      <td class="tnum rank">2nd / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Child health</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Treatment of diarrhea: Either ORS or RHF</td>
+      <td class="tnum val">37.7%</td>
+      <td class="tnum ci">21.9–53.5</td>
+      <td class="tnum natl">49.6%</td>
+      <td class="tnum delta bad">-11.9</td>
+      <td class="tnum rank">23rd / 28</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Education</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Women who are literate</td>
+      <td class="tnum val">61.1%</td>
+      <td class="tnum ci">57.5–64.8</td>
+      <td class="tnum natl">—</td>
+      <td class="tnum delta ">—</td>
+      <td class="tnum rank">20th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Family planning</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Current use of any modern method of contraception (all women)</td>
+      <td class="tnum val">20.9%</td>
+      <td class="tnum ci">17.9–23.9</td>
+      <td class="tnum natl">13.1%</td>
+      <td class="tnum delta good">+7.8</td>
+      <td class="tnum rank">7th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Unmet need for family planning, total (all women)</td>
+      <td class="tnum val">11.5%</td>
+      <td class="tnum ci">9.3–13.8</td>
+      <td class="tnum natl">15.7%</td>
+      <td class="tnum delta good">-4.2</td>
+      <td class="tnum rank">7th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Immunisation</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Fully vaccinated (8 basic antigens)</td>
+      <td class="tnum val">26.6%</td>
+      <td class="tnum ci">17.2–36.0</td>
+      <td class="tnum natl">39.4%</td>
+      <td class="tnum delta bad">-12.8</td>
+      <td class="tnum rank">33rd / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Measles vaccination received</td>
+      <td class="tnum val">44.6%</td>
+      <td class="tnum ci">33.8–55.4</td>
+      <td class="tnum natl">51.4%</td>
+      <td class="tnum delta bad">-6.8</td>
+      <td class="tnum rank">28th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Pentavalent 3 vaccination received</td>
+      <td class="tnum val">47.6%</td>
+      <td class="tnum ci">36.8–58.5</td>
+      <td class="tnum natl">53.4%</td>
+      <td class="tnum delta bad">-5.8</td>
+      <td class="tnum rank">28th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Received no vaccinations</td>
+      <td class="tnum val">26.9%</td>
+      <td class="tnum ci">17.2–36.6</td>
+      <td class="tnum natl">30.9%</td>
+      <td class="tnum delta good">-4.0</td>
+      <td class="tnum rank">25th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Living standards</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Households with electricity</td>
+      <td class="tnum val">27.3%</td>
+      <td class="tnum ci">23.6–30.9</td>
+      <td class="tnum natl">55.2%</td>
+      <td class="tnum delta bad">-27.9</td>
+      <td class="tnum rank">32nd / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Malaria</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Children with fever for whom advice or treatment was sought</td>
+      <td class="tnum val">55.0%</td>
+      <td class="tnum ci">41.9–68.1</td>
+      <td class="tnum natl">60.0%</td>
+      <td class="tnum delta bad">-5.0</td>
+      <td class="tnum rank">30th / 35</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">SP/Fansidar 3+ doses during pregnancy</td>
+      <td class="tnum val">31.9%</td>
+      <td class="tnum ci">25.1–38.6</td>
+      <td class="tnum natl">26.1%</td>
+      <td class="tnum delta good">+5.8</td>
+      <td class="tnum rank">11th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Households with at least one insecticide-treated mosquito net (ITN) for every two persons who stayed in the household the previous night</td>
+      <td class="tnum val">20.1%</td>
+      <td class="tnum ci">16.8–23.3</td>
+      <td class="tnum natl">31.5%</td>
+      <td class="tnum delta bad">-11.4</td>
+      <td class="tnum rank">25th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Maternal health</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Antenatal visits for pregnancy: 4+ visits</td>
+      <td class="tnum val">46.7%</td>
+      <td class="tnum ci">39.3–54.0</td>
+      <td class="tnum natl">52.4%</td>
+      <td class="tnum delta bad">-5.7</td>
+      <td class="tnum rank">29th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Child mortality</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Infant mortality rate</td>
+      <td class="tnum val">58.2</td>
+      <td class="tnum ci">45.8–70.6</td>
+      <td class="tnum natl">63.0</td>
+      <td class="tnum delta good">-4.8</td>
+      <td class="tnum rank">27th / 37</td>
+      <td class="src mono">api_ci</td>
+    </tr>
+    <tr>
+      <td class="ind">Neonatal mortality rate</td>
+      <td class="tnum val">31.3</td>
+      <td class="tnum ci">22.5–40.2</td>
+      <td class="tnum natl">41.0</td>
+      <td class="tnum delta good">-9.7</td>
+      <td class="tnum rank">20th / 37</td>
+      <td class="src mono">api_ci</td>
+    </tr>
+    <tr>
+      <td class="ind">Under-five mortality rate</td>
+      <td class="tnum val">96.8</td>
+      <td class="tnum ci">75.2–118.3</td>
+      <td class="tnum natl">110.0</td>
+      <td class="tnum delta good">-13.2</td>
+      <td class="tnum rank">24th / 37</td>
+      <td class="src mono">api_ci</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Nutrition</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Children stunted</td>
+      <td class="tnum val">45.5%</td>
+      <td class="tnum ci">37.9–53.1</td>
+      <td class="tnum natl">39.5%</td>
+      <td class="tnum delta bad">+6.0</td>
+      <td class="tnum rank">27th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Children underweight</td>
+      <td class="tnum val">23.2%</td>
+      <td class="tnum ci">17.0–29.3</td>
+      <td class="tnum natl">26.6%</td>
+      <td class="tnum delta good">-3.4</td>
+      <td class="tnum rank">19th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Children wasted</td>
+      <td class="tnum val">6.2%</td>
+      <td class="tnum ci">3.8–8.6</td>
+      <td class="tnum natl">8.4%</td>
+      <td class="tnum delta good">-2.2</td>
+      <td class="tnum rank">2nd / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Women who are thin according to BMI (&lt;18.5)</td>
+      <td class="tnum val">11.3%</td>
+      <td class="tnum ci">7.4–15.3</td>
+      <td class="tnum natl">17.8%</td>
+      <td class="tnum delta good">-6.5</td>
+      <td class="tnum rank">13th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+  <section class="domain">
+    <h2>Water &amp; sanitation</h2>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th>Indicator</th><th>State</th><th>95% interval</th><th>National</th>
+        <th>Δ vs national</th><th>Rank</th><th>Basis</th>
+      </tr></thead>
+      <tbody>
+    <tr>
+      <td class="ind">Population with an improved sanitation facility</td>
+      <td class="tnum val">37.3%</td>
+      <td class="tnum ci">35.5–39.1</td>
+      <td class="tnum natl">64.9%</td>
+      <td class="tnum delta bad">-27.6</td>
+      <td class="tnum rank">34th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Population using an improved water source</td>
+      <td class="tnum val">49.6%</td>
+      <td class="tnum ci">47.7–51.5</td>
+      <td class="tnum natl">75.6%</td>
+      <td class="tnum delta bad">-26.0</td>
+      <td class="tnum rank">33rd / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr>
+    <tr>
+      <td class="ind">Population using open defecation</td>
+      <td class="tnum val">60.0%</td>
+      <td class="tnum ci">58.2–61.9</td>
+      <td class="tnum natl">19.9%</td>
+      <td class="tnum delta bad">+40.1</td>
+      <td class="tnum rank">35th / 37</td>
+      <td class="src mono">deff_approx</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+
+  <div class="methods">
+    <h3>How to read this</h3>
+    <p>Every figure is the state's own NG2024DHS survey estimate, shrunk toward a
+    regression on geography in proportion to how noisy that state's own sample is
+    (Fay&ndash;Herriot small-area estimation) &mdash; not the raw survey number, and not a
+    guess. <b>Basis</b> says whether the margin of error came from the survey's own
+    published confidence interval (<span class="mono">api_ci</span>) or an approximation
+    (<span class="mono">deff_approx</span>) where it didn't publish one. <b>Rank</b> is
+    among the other states this indicator could be fitted for that round &mdash; 1st is
+    always the best outcome, regardless of whether that means the highest or lowest
+    number. Full method, every documented approximation, and the LGA-level breakdown
+    (synthetic, not locally measured) are in the estimates explorer and
+    <span class="mono">platform/model/README.md</span>.</p>
+    <div class="s"><b>The DHS Program, ICF</b> — DHS Program API (StatCompiler) — Nigeria<br><span class="mono">DHS Program Terms of Use — https://dhsprogram.com/Data/terms-of-use.cfm</span></div><div class="s"><b>Àlááfìa</b> — Fay–Herriot small-area estimation, state -&gt; LGA<br><span class="mono">internal method — see platform/model/README.md</span></div>
+  </div>
+</div>
+</body></html>

@@ -9,12 +9,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from sae.config import CLUSTER_STUNTING, COV_LGA
+from sae.config import CLUSTER_NUTRITION, COV_LGA
 from sae.fayherriot import _neg_reml_loglik
-from sae.unit_level import estimate, fit, lga_direct_estimates
+from sae.unit_level import available_slugs, estimate, fit, lga_direct_estimates
 
 pytestmark = pytest.mark.skipif(
-    not (CLUSTER_STUNTING.exists() and COV_LGA.exists()),
+    not (CLUSTER_NUTRITION.exists() and COV_LGA.exists()),
     reason="cluster microdata / covariates not built — run `surveylayer clusters`",
 )
 
@@ -46,16 +46,22 @@ def test_reml_objective_is_the_same_function_fayherriot_uses():
     assert imported is _neg_reml_loglik
 
 
-def test_lga_direct_estimates_sane():
-    d = lga_direct_estimates()
+def test_available_slugs_matches_nutrition_table():
+    assert set(available_slugs()) == {"child_stunting", "child_wasting", "child_underweight"}
+
+
+@pytest.mark.parametrize("slug", ["child_stunting", "child_wasting", "child_underweight"])
+def test_lga_direct_estimates_sane(slug):
+    d = lga_direct_estimates(slug)
     assert d.direct.between(0, 100).all()
     assert (d.psi > 0).all()
     assert (d.n_children > 0).all()
     assert d.lga_pcode.is_unique
 
 
-def test_fit_and_estimate_cover_all_774_lgas():
-    fit_ = fit()
+@pytest.mark.parametrize("slug", ["child_stunting", "child_wasting", "child_underweight"])
+def test_fit_and_estimate_cover_all_774_lgas(slug):
+    fit_ = fit(slug)
     out = estimate(fit_)
     assert len(out) == 774
     assert out.lga_pcode.is_unique
@@ -64,13 +70,16 @@ def test_fit_and_estimate_cover_all_774_lgas():
     assert set(out.method) == {"unit_level_eblup", "unit_level_synthetic"}
     # every LGA with direct data got the EBLUP treatment, no silent drop
     assert (out.method == "unit_level_eblup").sum() == fit_.n_lgas
+    assert (out.weak_signal == fit_.weak_signal).all()
 
 
 def test_eblup_shrinks_toward_direct_when_data_is_rich():
     """An LGA with many of its own clusters should land closer to its own
     direct rate than to the pure covariate prediction — same shrinkage
-    property fayherriot's own test checks, at this level instead."""
-    fit_ = fit()
+    property fayherriot's own test checks, at this level instead. Uses
+    stunting specifically: it has real between-LGA signal (see the
+    weak_signal test below for the indicator that doesn't)."""
+    fit_ = fit("child_stunting")
     out = estimate(fit_)
     rich = out[out.n_clusters >= 10]
     if rich.empty:
@@ -80,8 +89,29 @@ def test_eblup_shrinks_toward_direct_when_data_is_rich():
 
 
 def test_zero_cluster_lgas_get_wider_uncertainty_than_data_rich_ones():
-    fit_ = fit()
+    fit_ = fit("child_stunting")
     out = estimate(fit_)
     synth_se = out.loc[out.method == "unit_level_synthetic", "se"].mean()
     rich_se = out.loc[out.n_clusters >= 5, "se"].mean()
     assert synth_se > rich_se
+
+
+def test_weak_signal_flag_catches_wasting():
+    """child_wasting's raw between-LGA variance doesn't exceed its own
+    sampling noise at this sample size (median ~10 children/LGA) — real,
+    checked directly against the data, not asserted from a formula. The
+    flag exists so this doesn't have to be rediscovered by eyeballing a
+    suspiciously narrow estimate range."""
+    fit_ = fit("child_wasting")
+    assert fit_.weak_signal
+    assert fit_.sigma_u2 < 0.1 * fit_.lgas.psi.median()
+
+    out = estimate(fit_)
+    assert out.weak_signal.all()
+    # the practical consequence: estimates barely vary across LGAs
+    assert out.estimate.std() < 5.0
+
+
+def test_strong_signal_indicators_are_not_flagged():
+    for slug in ["child_stunting", "child_underweight"]:
+        assert not fit(slug).weak_signal

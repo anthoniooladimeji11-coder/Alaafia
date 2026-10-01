@@ -46,8 +46,9 @@ def build(force_fetch: bool = typer.Option(False, help="re-download first")):
 @app.command()
 def clusters():
     """Compute cluster-level indicator rates from raw DHS microdata,
-    joined to geography + LGA covariates. Currently: child stunting,
-    the 4 rounds with a uniform KR schema (2008/2013/2018/2024)."""
+    joined to geography + LGA covariates. Currently: child nutrition
+    (stunting/wasting/underweight), the 4 rounds with a uniform KR schema
+    (2008/2013/2018/2024)."""
     from .microdata import build as _b
 
     r = _b()

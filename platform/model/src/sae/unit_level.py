@@ -21,10 +21,11 @@ with its own review — not something to fold into proving this approach
 works. If unit-level estimation proves out and expands past stunting, that
 consolidation is the natural next cleanup.
 
-Scoped to child_stunting / NG2024DHS — the first (and so far only) indicator
-with cluster microdata extracted (surveylayer.microdata), run against the
-same survey_id Stage 1 already uses for this indicator, so the two are
-directly comparable.
+Scoped to whatever surveylayer.microdata has extracted into
+cluster_nutrition.parquet — currently child_stunting, child_wasting,
+child_underweight, same 4 rounds each. `run_all()` discovers available
+slugs from the data itself rather than keeping its own parallel list, so
+there's nothing to forget to update when microdata.py grows another one.
 """
 
 from __future__ import annotations
@@ -35,34 +36,36 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize_scalar
 
-from .config import CLUSTER_STUNTING, COV_LGA, STATE_COVARIATES
+from .config import CLUSTER_NUTRITION, COV_LGA, STATE_COVARIATES, UNIT_LGA_PARQUET
 from .fayherriot import _neg_reml_loglik, sampling_variance
 
 MIN_LGAS_TO_FIT = 50
 
 
-def lga_direct_estimates(survey_id: str = "NG2024DHS") -> pd.DataFrame:
-    """One row per LGA with >=1 DHS cluster: the pooled weighted stunting
-    rate across every child in every one of that LGA's clusters (pooled at
-    the child level via each cluster's own weight_sum — a 12-child cluster
-    and a 2-child cluster don't count equally), plus its sampling variance
-    via the same DEFF approximation Stage 1 uses for any cell without a
-    published CI (there is no published CI here at all; it's the only
-    option, not a fallback among several)."""
-    cs = pd.read_parquet(CLUSTER_STUNTING)
-    d = cs[(cs.survey_round == survey_id) & cs.lga_pcode.notna()].copy()
-    # weight_sum * stunting_rate reconstructs each cluster's weighted-stunted
-    # total exactly (stunting_rate was defined as that total / weight_sum) —
-    # no need to re-read the raw KR file to pool clusters correctly.
-    d["w_stunted"] = d.weight_sum * d.stunting_rate
+def lga_direct_estimates(slug: str, survey_id: str = "NG2024DHS") -> pd.DataFrame:
+    """One row per LGA with >=1 DHS cluster: the pooled weighted rate for
+    `slug` across every child in every one of that LGA's clusters (pooled
+    at the child level via each cluster's own weight_sum — a 12-child
+    cluster and a 2-child cluster don't count equally), plus its sampling
+    variance via the same DEFF approximation Stage 1 uses for any cell
+    without a published CI (there is no published CI here at all; it's
+    the only option, not a fallback among several)."""
+    cs = pd.read_parquet(CLUSTER_NUTRITION)
+    d = cs[(cs.slug == slug) & (cs.survey_round == survey_id) & cs.lga_pcode.notna()].copy()
+    if d.empty:
+        raise ValueError(f"{slug}/{survey_id}: no cluster data in {CLUSTER_NUTRITION}")
+    # weight_sum * rate reconstructs each cluster's weighted-affected total
+    # exactly (rate was defined as that total / weight_sum) — no need to
+    # re-read the raw KR file to pool clusters correctly.
+    d["w_affected"] = d.weight_sum * d.rate
 
     g = d.groupby("lga_pcode").agg(
         n_clusters=("cluster_id", "size"),
         n_children=("n_children", "sum"),
         weight_sum=("weight_sum", "sum"),
-        w_stunted_sum=("w_stunted", "sum"),
+        w_affected_sum=("w_affected", "sum"),
     )
-    g["direct"] = 100.0 * g.w_stunted_sum / g.weight_sum   # pct, matching Stage 1's unit
+    g["direct"] = 100.0 * g.w_affected_sum / g.weight_sum   # pct, matching Stage 1's unit
 
     psi_method = g.apply(
         lambda r: sampling_variance(r.direct, None, None, r.n_children, "pct"), axis=1
@@ -70,6 +73,12 @@ def lga_direct_estimates(survey_id: str = "NG2024DHS") -> pd.DataFrame:
     g["psi"] = [p for p, _ in psi_method]
     g["psi_method"] = [m for _, m in psi_method]
     return g[["n_clusters", "n_children", "direct", "psi", "psi_method"]].reset_index()
+
+
+def available_slugs() -> list[str]:
+    """Indicators surveylayer.microdata has actually extracted — read from
+    the data, not a parallel hardcoded list that could drift from it."""
+    return pd.read_parquet(CLUSTER_NUTRITION, columns=["slug"]).slug.unique().tolist()
 
 
 def _lga_covariates(cols: list[str]) -> pd.DataFrame:
@@ -96,16 +105,17 @@ class UnitFit:
     col_std: pd.Series
     n_lgas: int
     var_sigma_u2: float
+    weak_signal: bool                                 # see fit() — sigma_u2 negligible vs sampling noise
     lgas: pd.DataFrame = field(repr=False)          # the LGAs actually fit (have direct data)
     all_covariates: pd.DataFrame = field(repr=False)  # all 774, for out-of-sample prediction
 
 
-def fit(survey_id: str = "NG2024DHS", cols: list[str] = STATE_COVARIATES) -> UnitFit:
-    direct = lga_direct_estimates(survey_id)
+def fit(slug: str, survey_id: str = "NG2024DHS", cols: list[str] = STATE_COVARIATES) -> UnitFit:
+    direct = lga_direct_estimates(slug, survey_id)
     cov = _lga_covariates(cols)
     d = direct.merge(cov, on="lga_pcode", how="inner")
     if len(d) < MIN_LGAS_TO_FIT:
-        raise ValueError(f"child_stunting/{survey_id}: only {len(d)} LGAs with a direct "
+        raise ValueError(f"{slug}/{survey_id}: only {len(d)} LGAs with a direct "
                          f"estimate (need >= {MIN_LGAS_TO_FIT})")
 
     col_mean, col_std = d[cols].mean(), d[cols].std(ddof=0).replace(0, 1)
@@ -124,9 +134,20 @@ def fit(survey_id: str = "NG2024DHS", cols: list[str] = STATE_COVARIATES) -> Uni
     beta = np.linalg.solve(XtVinvX, X.T @ (y * Vinv))
     var_sigma_u2 = 2.0 / float(np.sum(Vinv ** 2))
 
-    return UnitFit(slug="child_stunting", survey_id=survey_id, cols=cols, beta=beta,
+    # REML found essentially no between-LGA variance beyond sampling noise:
+    # every LGA's gamma will be near 0 and the EBLUP collapses to the
+    # (nearly flat) regression line regardless of each LGA's own direct
+    # estimate — the honest outcome when raw variance across direct
+    # estimates doesn't exceed the sampling noise itself (seen for real with
+    # child_wasting: var(direct)=134 < mean(psi)=158), not a bug to chase
+    # away by forcing sigma_u2 up. Surfaced rather than left for someone to
+    # notice only by eyeballing a suspiciously narrow estimate range.
+    weak_signal = sigma_u2 < 0.1 * float(np.median(psi))
+
+    return UnitFit(slug=slug, survey_id=survey_id, cols=cols, beta=beta,
                    sigma_u2=sigma_u2, col_mean=col_mean, col_std=col_std, n_lgas=len(d),
-                   var_sigma_u2=var_sigma_u2, lgas=d.reset_index(drop=True), all_covariates=cov)
+                   var_sigma_u2=var_sigma_u2, weak_signal=weak_signal,
+                   lgas=d.reset_index(drop=True), all_covariates=cov)
 
 
 def estimate(fit_: UnitFit) -> pd.DataFrame:
@@ -184,4 +205,35 @@ def estimate(fit_: UnitFit) -> pd.DataFrame:
     out["ci_low"] = (out.estimate - 1.96 * out.se).clip(lower=0, upper=100)
     out["ci_high"] = (out.estimate + 1.96 * out.se).clip(lower=0, upper=100)
     out["slug"], out["survey_id"], out["unit"] = fit_.slug, fit_.survey_id, "pct"
+    # carried through to the persisted table, not just the transient fit
+    # object — a reader of unit_lga.parquet alone should be able to tell
+    # this indicator's LGA variation is mostly noise, not go looking for it
+    out["weak_signal"] = fit_.weak_signal
     return out
+
+
+def run_all(survey_id: str = "NG2024DHS", *, slugs: list[str] | None = None) -> dict:
+    """Fit + estimate every available slug, persist to UNIT_LGA_PARQUET.
+    Same incremental-rebuild pattern as run.run_all(): drop any prior rows
+    for (slug, survey_id) about to be rewritten, keep everything else."""
+    todo = slugs if slugs is not None else available_slugs()
+    frames, ok, failed, weak = [], [], [], []
+    for slug in todo:
+        try:
+            fit_ = fit(slug, survey_id)
+            frames.append(estimate(fit_))
+            ok.append(slug)
+            if fit_.weak_signal:
+                weak.append(slug)
+        except ValueError as e:
+            failed.append((slug, str(e)))
+
+    result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if len(result):
+        prior = pd.read_parquet(UNIT_LGA_PARQUET) if UNIT_LGA_PARQUET.exists() else pd.DataFrame()
+        if len(prior):
+            prior = prior[~((prior.survey_id == survey_id) & prior.slug.isin(ok))]
+        pd.concat([prior, result], ignore_index=True).to_parquet(UNIT_LGA_PARQUET, index=False)
+
+    return {"survey_id": survey_id, "fit": ok, "skipped": failed, "weak_signal": weak,
+           "rows": len(result)}

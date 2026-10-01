@@ -16,8 +16,9 @@ SURVEY_SERIES = ROOT.parent / "survey" / "data" / "survey" / "survey_series.parq
 COV_LGA = ROOT.parent / "covariates" / "data" / "covariates" / "covariates_lga.parquet"
 GEO_UNIT = ROOT.parent / "geo" / "data" / "spine" / "geo_unit.parquet"
 # cluster-level indicator rates from raw DHS microdata (surveylayer.microdata) —
-# the unit-level model's input, as opposed to SURVEY's API-published state figures
-CLUSTER_STUNTING = ROOT.parent / "survey" / "data" / "survey" / "cluster_stunting.parquet"
+# the unit-level model's input, as opposed to SURVEY's API-published state figures.
+# Long format, one slug per nutrition indicator (child_stunting/wasting/underweight).
+CLUSTER_NUTRITION = ROOT.parent / "survey" / "data" / "survey" / "cluster_nutrition.parquet"
 
 UNIT_LGA_PARQUET = OUT / "unit_lga.parquet"
 

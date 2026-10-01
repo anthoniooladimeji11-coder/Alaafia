@@ -106,28 +106,32 @@ def check():
 
 
 @app.command(name="unit-fit")
-def unit_fit(survey: str = typer.Option("NG2024DHS", "--survey")):
-    """Unit-level child-stunting model from real DHS cluster microdata —
+def unit_fit(slug: str, survey: str = typer.Option("NG2024DHS", "--survey")):
+    """Unit-level model for one indicator, from real DHS cluster microdata —
     separate from `build`/`fit`, which still only know the state-level,
-    API-sourced pipeline. Fits + persists to unit_lga.parquet, prints a
-    comparison against the existing synthetic Stage-2 output for the same
-    indicator/survey, where both exist."""
+    API-sourced pipeline. Prints a comparison against the existing synthetic
+    Stage-2 output for the same indicator/survey, where both exist. Does not
+    persist — use `unit-build` for that."""
     import pandas as pd
 
     from . import unit_level as ul
-    from .config import SAE_LGA_PARQUET, UNIT_LGA_PARQUET
+    from .config import SAE_LGA_PARQUET
 
-    fit_ = ul.fit(survey)
+    fit_ = ul.fit(slug, survey)
     out = ul.estimate(fit_)
-    out.to_parquet(UNIT_LGA_PARQUET, index=False)
 
     typer.secho(f"{fit_.n_lgas} LGAs with direct cluster data (of 774); "
                f"sigma_u2={fit_.sigma_u2:.1f}", fg="cyan")
     typer.echo(out.method.value_counts().to_string())
+    if fit_.weak_signal:
+        typer.secho(f"  WEAK SIGNAL: between-LGA variance is negligible next to sampling "
+                   f"noise for {slug} — estimates will barely vary by LGA regardless of "
+                   f"each one's own direct data. Not a bug; this indicator doesn't yet "
+                   f"support real LGA differentiation at this sample size.", fg="yellow")
 
     if SAE_LGA_PARQUET.exists():
         old = pd.read_parquet(SAE_LGA_PARQUET)
-        old = old[(old.slug == "child_stunting") & (old.survey_id == survey)][
+        old = old[(old.slug == slug) & (old.survey_id == survey)][
             ["lga_pcode", "estimate", "se_floor"]
         ].rename(columns={"estimate": "old_estimate", "se_floor": "old_se"})
         if len(old):
@@ -136,6 +140,26 @@ def unit_fit(survey: str = typer.Option("NG2024DHS", "--survey")):
             typer.echo(f"  corr={cmp.estimate.corr(cmp.old_estimate):.3f}  "
                        f"mean|diff|={abs(cmp.estimate - cmp.old_estimate).mean():.1f}pp")
             typer.echo(cmp.groupby("method")[["se", "old_se"]].mean().to_string())
+
+
+@app.command(name="unit-build")
+def unit_build(survey: str = typer.Option("NG2024DHS", "--survey"),
+              slug: list[str] = typer.Option(None, "--slug", help="repeatable; default = all available")):
+    """Fit + estimate every unit-level indicator available in
+    cluster_nutrition.parquet (or a chosen subset), persist to
+    unit_lga.parquet."""
+    from . import unit_level as ul
+
+    r = ul.run_all(survey, slugs=slug or None)
+    typer.secho(f"fit {len(r['fit'])}: {', '.join(r['fit'])}", fg="green")
+    if r["weak_signal"]:
+        typer.secho(f"  weak signal (negligible between-LGA variance vs sampling noise): "
+                   f"{', '.join(r['weak_signal'])}", fg="yellow")
+    if r["skipped"]:
+        typer.secho(f"skipped {len(r['skipped'])}:", fg="yellow")
+        for slug_, why in r["skipped"]:
+            typer.echo(f"    {slug_}: {why}")
+    typer.echo(f"rows={r['rows']}")
 
 
 @app.command()

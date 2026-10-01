@@ -44,6 +44,17 @@ def build(force_fetch: bool = typer.Option(False, help="re-download first")):
 
 
 @app.command()
+def clusters():
+    """Compute cluster-level indicator rates from raw DHS microdata,
+    joined to geography + LGA covariates. Currently: child stunting,
+    the 4 rounds with a uniform KR schema (2008/2013/2018/2024)."""
+    from .microdata import build as _b
+
+    r = _b()
+    typer.echo(json.dumps(r, indent=2, default=str))
+
+
+@app.command()
 def query(sql: str = typer.Argument(..., help="SQL over survey_indicator / survey_series")):
     """Run SQL against the built tables (read-only, in-memory)."""
     from .config import SERIES_PARQUET

@@ -16,6 +16,13 @@ OUT.mkdir(parents=True, exist_ok=True)
 GEO_SPINE = ROOT.parent / "geo" / "data" / "spine"
 GEO_UNIT_PARQUET = GEO_SPINE / "geo_unit.parquet"
 CROSSWALK_DHS_PARQUET = GEO_SPINE / "crosswalk_dhs.parquet"
+GEO_DHS_CLUSTER_PARQUET = GEO_SPINE / "geo_dhs_cluster.parquet"
+
+# LGA covariates (committed in the sibling package)
+COV_LGA_PARQUET = ROOT.parent / "covariates" / "data" / "covariates" / "covariates_lga.parquet"
+
+# raw DHS microdata (gitignored — never redistributed, see data/raw/.gitignore)
+MICRODATA = RAW / "microdata"
 
 # outputs
 INDICATOR_PARQUET = OUT / "survey_indicator.parquet"     # long fact table

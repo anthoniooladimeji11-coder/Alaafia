@@ -105,6 +105,39 @@ def check():
         typer.secho(f"  note {n}", fg="yellow")
 
 
+@app.command(name="unit-fit")
+def unit_fit(survey: str = typer.Option("NG2024DHS", "--survey")):
+    """Unit-level child-stunting model from real DHS cluster microdata —
+    separate from `build`/`fit`, which still only know the state-level,
+    API-sourced pipeline. Fits + persists to unit_lga.parquet, prints a
+    comparison against the existing synthetic Stage-2 output for the same
+    indicator/survey, where both exist."""
+    import pandas as pd
+
+    from . import unit_level as ul
+    from .config import SAE_LGA_PARQUET, UNIT_LGA_PARQUET
+
+    fit_ = ul.fit(survey)
+    out = ul.estimate(fit_)
+    out.to_parquet(UNIT_LGA_PARQUET, index=False)
+
+    typer.secho(f"{fit_.n_lgas} LGAs with direct cluster data (of 774); "
+               f"sigma_u2={fit_.sigma_u2:.1f}", fg="cyan")
+    typer.echo(out.method.value_counts().to_string())
+
+    if SAE_LGA_PARQUET.exists():
+        old = pd.read_parquet(SAE_LGA_PARQUET)
+        old = old[(old.slug == "child_stunting") & (old.survey_id == survey)][
+            ["lga_pcode", "estimate", "se_floor"]
+        ].rename(columns={"estimate": "old_estimate", "se_floor": "old_se"})
+        if len(old):
+            cmp = out.merge(old, on="lga_pcode")
+            typer.echo(f"\nvs existing Stage-2 synthetic ({len(cmp)} LGAs matched):")
+            typer.echo(f"  corr={cmp.estimate.corr(cmp.old_estimate):.3f}  "
+                       f"mean|diff|={abs(cmp.estimate - cmp.old_estimate).mean():.1f}pp")
+            typer.echo(cmp.groupby("method")[["se", "old_se"]].mean().to_string())
+
+
 @app.command()
 def query(sql: str = typer.Argument(...)):
     con = duckdb.connect(":memory:")

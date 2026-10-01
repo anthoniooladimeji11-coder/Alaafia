@@ -3,6 +3,7 @@
   geospine fetch [--force] [--big]     download raw sources
   geospine build                        build geo_unit / geo_alias / geo_source_meta
   geospine crosswalk dhs                build the DHS → canonical crosswalk
+  geospine dhs-clusters                 geocode every DHS round's GPS clusters onto the spine
   geospine resolve NAME [--level L] [--parent PCODE]
   geospine locate LON LAT
   geospine check                        integrity report on the built spine
@@ -50,6 +51,14 @@ def crosswalk(which: str):
 def facilities():
     """Geocode the GRID3 health-facility layer onto the spine."""
     from .facilities import build as _b
+
+    print(json.dumps(_b(), indent=2, default=str))
+
+
+@app.command(name="dhs-clusters")
+def dhs_clusters():
+    """Geocode every DHS round's GPS cluster layer onto the spine."""
+    from .dhs_clusters import build as _b
 
     print(json.dumps(_b(), indent=2, default=str))
 
